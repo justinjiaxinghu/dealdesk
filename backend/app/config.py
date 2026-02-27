@@ -1,0 +1,17 @@
+# backend/app/config.py
+from pathlib import Path
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    model_config = {"env_prefix": "DEALDESK_"}
+
+    database_url: str = "postgresql+asyncpg://localhost:5432/dealdesk"
+    database_url_sync: str = "postgresql://localhost:5432/dealdesk"
+    file_storage_path: Path = Path("./storage")
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+    cors_origins: list[str] = ["http://localhost:3000"]
+
+
+settings = Settings()
