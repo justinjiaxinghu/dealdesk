@@ -17,7 +17,6 @@ const ACTIVE_STEP_LABELS: Record<string, string> = {
 };
 
 interface DealProgressBarProps {
-  status: string;
   hasDocuments: boolean;
   hasFields: boolean;
   hasAssumptions: boolean;

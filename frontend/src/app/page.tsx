@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,18 +13,6 @@ import {
 } from "@/components/ui/table";
 import { useDeals } from "@/hooks/use-deal";
 
-function statusBadgeVariant(status: string) {
-  switch (status.toLowerCase()) {
-    case "active":
-      return "bg-green-100 text-green-800";
-    case "closed":
-      return "bg-gray-100 text-gray-800";
-    case "draft":
-      return "bg-yellow-100 text-yellow-800";
-    default:
-      return "bg-blue-100 text-blue-800";
-  }
-}
 
 export default function DealsPage() {
   const { deals, loading } = useDeals();
@@ -55,7 +42,6 @@ export default function DealsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Property Type</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -74,13 +60,6 @@ export default function DealsPage() {
                   {deal.address}, {deal.city}, {deal.state}
                 </TableCell>
                 <TableCell>{deal.property_type}</TableCell>
-                <TableCell>
-                  <Badge
-                    className={statusBadgeVariant(deal.status)}
-                  >
-                    {deal.status}
-                  </Badge>
-                </TableCell>
                 <TableCell>
                   {new Date(deal.created_at).toLocaleDateString()}
                 </TableCell>

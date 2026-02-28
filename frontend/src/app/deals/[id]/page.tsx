@@ -194,7 +194,6 @@ export default function DealWorkspacePage({
 
       {/* Progress Bar */}
       <DealProgressBar
-        status={deal.status}
         hasDocuments={documents.length > 0}
         hasFields={fields.length > 0}
         hasAssumptions={assumptions.length > 0}
@@ -240,10 +239,6 @@ export default function DealWorkspacePage({
                       ? deal.square_feet.toLocaleString()
                       : "-"}
                   </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Status</dt>
-                  <dd className="font-medium">{deal.status}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Created</dt>

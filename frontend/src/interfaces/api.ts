@@ -8,7 +8,6 @@ export interface Deal {
   latitude: number | null;
   longitude: number | null;
   square_feet: number | null;
-  status: string;
   created_at: string;
   updated_at: string;
 }
