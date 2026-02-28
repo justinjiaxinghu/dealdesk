@@ -55,6 +55,9 @@ class ExtractedFieldRepository(ABC):
     @abstractmethod
     async def get_by_document_id(self, document_id: UUID) -> list[ExtractedField]: ...
 
+    @abstractmethod
+    async def get_by_deal_id(self, deal_id: UUID) -> list[ExtractedField]: ...
+
 
 class MarketTableRepository(ABC):
     @abstractmethod
