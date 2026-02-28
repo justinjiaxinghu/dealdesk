@@ -58,6 +58,9 @@ from app.infrastructure.persistence.extraction_repo import (
     SqlAlchemyExtractedFieldRepository,
     SqlAlchemyMarketTableRepository,
 )
+from app.infrastructure.persistence.field_validation_repo import (
+    SqlAlchemyFieldValidationRepository,
+)
 
 
 def get_deal_repo(session: DbSession) -> SqlAlchemyDealRepository:
@@ -88,6 +91,10 @@ def get_export_repo(session: DbSession) -> SqlAlchemyExportRepository:
     return SqlAlchemyExportRepository(session)
 
 
+def get_field_validation_repo(session: DbSession) -> SqlAlchemyFieldValidationRepository:
+    return SqlAlchemyFieldValidationRepository(session)
+
+
 # ---------------------------------------------------------------------------
 # Service factories (compose repos + providers)
 # ---------------------------------------------------------------------------
@@ -96,6 +103,7 @@ from app.services.benchmark_service import BenchmarkService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
+from app.services.validation_service import ValidationService
 
 
 def get_deal_service(
@@ -165,4 +173,29 @@ def get_export_service(
         export_repo=export_repo,
         file_storage=_file_storage,
         excel_exporter=_excel_exporter,
+    )
+
+
+def get_validation_service(
+    deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
+    assumption_set_repo: Annotated[
+        SqlAlchemyAssumptionSetRepository, Depends(get_assumption_set_repo)
+    ],
+    assumption_repo: Annotated[
+        SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)
+    ],
+    field_validation_repo: Annotated[
+        SqlAlchemyFieldValidationRepository, Depends(get_field_validation_repo)
+    ],
+    extracted_field_repo: Annotated[
+        SqlAlchemyExtractedFieldRepository, Depends(get_extracted_field_repo)
+    ],
+) -> ValidationService:
+    return ValidationService(
+        deal_repo=deal_repo,
+        assumption_set_repo=assumption_set_repo,
+        assumption_repo=assumption_repo,
+        field_validation_repo=field_validation_repo,
+        extracted_field_repo=extracted_field_repo,
+        llm_provider=_llm_provider,
     )

@@ -208,3 +208,29 @@ class BenchmarkResponse(BaseModel):
     range_max: float
     source: str
     confidence: float
+
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+
+class ValidationSourceResponse(BaseModel):
+    url: str
+    title: str
+    snippet: str
+
+
+class FieldValidationResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: UUID
+    deal_id: UUID
+    field_key: str
+    om_value: float | None = None
+    market_value: float | None = None
+    status: str
+    explanation: str
+    sources: list[ValidationSourceResponse] = []
+    confidence: float
+    created_at: datetime
