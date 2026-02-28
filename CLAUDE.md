@@ -13,7 +13,7 @@ backend/app/
   domain/          # Pure business logic, zero external deps
     entities/      # Dataclass entities (Deal, Document, Assumption, etc.)
     interfaces/    # ABCs for repos and providers (DealRepository, FileStorage, etc.)
-    value_objects/  # Enums (PropertyType, DealStatus) and I/O types (PageText, etc.)
+    value_objects/  # Enums (PropertyType, ValidationStatus) and I/O types (PageText, etc.)
   services/        # Business orchestration (DealService, DocumentService, BenchmarkService, etc.)
   infrastructure/  # Concrete implementations of domain interfaces
     persistence/   # SQLAlchemy repos + ORM models + Alembic migrations
@@ -91,7 +91,7 @@ Frontend: `NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`)
 All routes under `/v1`:
 
 - `POST /v1/deals` — Create deal (also creates Base Case assumption set)
-- `GET /v1/deals` — List deals (filter by property_type, status, city)
+- `GET /v1/deals` — List deals (filter by property_type, city)
 - `GET /v1/deals/{id}` — Get deal
 - `PATCH /v1/deals/{id}` — Update deal
 - `POST /v1/deals/{id}/documents` — Upload PDF (triggers background processing)
@@ -119,6 +119,7 @@ All routes under `/v1`:
 - **Auto-Pipeline**: Frontend deal workspace auto-chains extraction → benchmark generation → field validation after document upload, with live 5-stage progress bar (spinner on active step, green checkmarks on completed steps)
 - **Read-Only Assumptions**: Assumptions are AI-generated and displayed read-only; users can regenerate but not manually edit
 - **Quick Extract**: Deal creation form sends the first page of the uploaded PDF to GPT-4o to auto-fill deal metadata fields
+- **Two-Phase Validation**: OM field validation runs in two phases — quick surface search (basic Tavily, 1-2 queries) followed by deep research (advanced Tavily, up to 10 rounds). Each search call is logged as a `search_step` with phase, query, and results. The frontend validation table has expandable rows showing the full search DAG.
 
 ## Testing
 
