@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AI-assisted real estate deal evaluation platform. Ingests Offering Memorandum PDFs, extracts data, generates AI benchmarks, computes a back-of-envelope proforma model, and exports to Excel.
+AI-assisted real estate deal evaluation platform. Ingests Offering Memorandum PDFs, extracts data, generates AI benchmarks, and exports to Excel. The workflow is fully agentic — after document upload, extraction and benchmark generation run automatically.
 
 ## Architecture
 
@@ -14,8 +14,7 @@ backend/app/
     entities/      # Dataclass entities (Deal, Document, Assumption, etc.)
     interfaces/    # ABCs for repos and providers (DealRepository, FileStorage, etc.)
     value_objects/  # Enums (PropertyType, DealStatus) and I/O types (PageText, etc.)
-    model_engine.py # Deterministic financial model computation
-  services/        # Business orchestration (DealService, DocumentService, etc.)
+  services/        # Business orchestration (DealService, DocumentService, BenchmarkService, etc.)
   infrastructure/  # Concrete implementations of domain interfaces
     persistence/   # SQLAlchemy repos + ORM models + Alembic migrations
     document_processing/  # pdfplumber
@@ -83,6 +82,7 @@ All prefixed with `DEALDESK_`:
 | `DEALDESK_OPENAI_MODEL` | `gpt-4o` | LLM model name |
 | `DEALDESK_FILE_STORAGE_PATH` | `./storage` | Local file storage directory |
 | `DEALDESK_CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins |
+| `DEALDESK_TAVILY_API_KEY` | `""` | Tavily API key for OM field validation web search |
 
 Frontend: `NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`)
 
@@ -96,15 +96,18 @@ All routes under `/v1`:
 - `PATCH /v1/deals/{id}` — Update deal
 - `POST /v1/deals/{id}/documents` — Upload PDF (triggers background processing)
 - `GET /v1/deals/{id}/documents` — List documents
+- `GET /v1/deals/{id}/documents/{doc_id}` — Get single document
 - `GET /v1/deals/{id}/documents/{doc_id}/fields` — Extracted fields
 - `GET /v1/deals/{id}/documents/{doc_id}/tables` — Extracted tables
 - `GET /v1/deals/{id}/assumption-sets` — List assumption sets
 - `POST /v1/deals/{id}/benchmarks:generate` — AI benchmark generation
+- `POST /v1/deals/{id}/validate` — Validate OM fields against market data
+- `GET /v1/deals/{id}/validations` — List field validations
 - `GET /v1/assumption-sets/{id}/assumptions` — List assumptions
 - `PUT /v1/assumption-sets/{id}/assumptions` — Bulk update assumptions
-- `POST /v1/assumption-sets/{id}/compute` — Compute model
-- `GET /v1/assumption-sets/{id}/result` — Get model result
-- `POST /v1/assumption-sets/{id}/export/xlsx` — Export to Excel
+- `POST /v1/assumption-sets/{id}/export/xlsx` — Create export record
+- `GET /v1/assumption-sets/{id}/export/xlsx` — Download XLSX file
+- `POST /v1/documents/quick-extract` — Extract deal metadata from first PDF page (used by create form)
 - `GET /health` — Health check
 
 ## Key Patterns
@@ -113,11 +116,13 @@ All routes under `/v1`:
 - **Processing Steps**: Document entity stores `processing_steps` as JSON for step-by-step progress tracking
 - **Source Type Tracking**: Every assumption tracks its origin (OM, AI, Manual, AI_Edited)
 - **Background Tasks**: Document processing runs via FastAPI BackgroundTasks
-- **Type Sharing**: Pydantic models are the single source of truth; frontend types generated via `openapi-typescript`
+- **Auto-Pipeline**: Frontend deal workspace auto-chains extraction → benchmark generation → field validation after document upload, with live 5-stage progress bar (spinner on active step, green checkmarks on completed steps)
+- **Read-Only Assumptions**: Assumptions are AI-generated and displayed read-only; users can regenerate but not manually edit
+- **Quick Extract**: Deal creation form sends the first page of the uploaded PDF to GPT-4o to auto-fill deal metadata fields
 
 ## Testing
 
-- `backend/tests/test_model_engine.py` — 4 unit tests for ModelEngine (TDD)
+- `backend/tests/test_golden_integration.py` — End-to-end pipeline test (deal → upload → extract → benchmarks → export) with LLM-as-judge validation
 - pytest with `asyncio_mode = "auto"`
 - Run: `cd backend && python -m pytest tests/ -v`
 
@@ -126,7 +131,7 @@ All routes under `/v1`:
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2.0 (async), asyncpg |
-| Database | PostgreSQL, Alembic migrations |
+| Database | SQLite (dev) / PostgreSQL (prod), Alembic migrations |
 | PDF Processing | pdfplumber (digital PDFs) |
 | LLM | OpenAI GPT-4o |
 | Excel Export | openpyxl |
