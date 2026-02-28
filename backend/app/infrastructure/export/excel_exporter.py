@@ -1,0 +1,138 @@
+# backend/app/infrastructure/export/excel_exporter.py
+from __future__ import annotations
+
+import asyncio
+from io import BytesIO
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
+from app.domain.entities.assumption import Assumption
+from app.domain.entities.deal import Deal
+from app.domain.entities.model_result import ModelResult
+from app.domain.interfaces.providers import ExcelExporter
+
+
+class OpenpyxlExcelExporter(ExcelExporter):
+    """Excel exporter using openpyxl to create .xlsx workbooks."""
+
+    async def export(
+        self, deal: Deal, assumptions: list[Assumption], results: ModelResult
+    ) -> bytes:
+        return await asyncio.to_thread(
+            self._build_workbook, deal, assumptions, results
+        )
+
+    @staticmethod
+    def _build_workbook(
+        deal: Deal, assumptions: list[Assumption], results: ModelResult
+    ) -> bytes:
+        wb = Workbook()
+
+        # Styles
+        header_font = Font(bold=True, size=12)
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
+        header_font_white = Font(bold=True, size=11, color="FFFFFF")
+        currency_fmt = '#,##0.00'
+        pct_fmt = '0.00"%"'
+
+        # ---------------------------------------------------------------
+        # Sheet 1: Deal Inputs
+        # ---------------------------------------------------------------
+        ws_deal = wb.active
+        ws_deal.title = "Deal Inputs"
+
+        deal_rows = [
+            ("Field", "Value"),
+            ("Deal Name", deal.name),
+            ("Address", deal.address),
+            ("City", deal.city),
+            ("State", deal.state),
+            ("Property Type", deal.property_type.value),
+            ("Square Feet", deal.square_feet),
+            ("Latitude", deal.latitude),
+            ("Longitude", deal.longitude),
+            ("Status", deal.status.value),
+        ]
+
+        for r, (field, value) in enumerate(deal_rows, start=1):
+            ws_deal.cell(row=r, column=1, value=field)
+            ws_deal.cell(row=r, column=2, value=value)
+
+        # Format header row
+        for col in range(1, 3):
+            cell = ws_deal.cell(row=1, column=col)
+            cell.font = header_font_white
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        ws_deal.column_dimensions["A"].width = 20
+        ws_deal.column_dimensions["B"].width = 30
+
+        # ---------------------------------------------------------------
+        # Sheet 2: Assumptions
+        # ---------------------------------------------------------------
+        ws_assumptions = wb.create_sheet("Assumptions")
+
+        assumption_headers = [
+            "Key", "Value", "Unit", "Range Min", "Range Max", "Source", "Notes"
+        ]
+        for col, header in enumerate(assumption_headers, start=1):
+            cell = ws_assumptions.cell(row=1, column=col, value=header)
+            cell.font = header_font_white
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        for r, a in enumerate(assumptions, start=2):
+            ws_assumptions.cell(row=r, column=1, value=a.key)
+            ws_assumptions.cell(row=r, column=2, value=a.value_number)
+            ws_assumptions.cell(row=r, column=3, value=a.unit)
+            ws_assumptions.cell(row=r, column=4, value=a.range_min)
+            ws_assumptions.cell(row=r, column=5, value=a.range_max)
+            ws_assumptions.cell(row=r, column=6, value=a.source_type.value)
+            ws_assumptions.cell(row=r, column=7, value=a.notes)
+
+        for col in range(1, 8):
+            ws_assumptions.column_dimensions[get_column_letter(col)].width = 18
+
+        # ---------------------------------------------------------------
+        # Sheet 3: Model Output
+        # ---------------------------------------------------------------
+        ws_output = wb.create_sheet("Model Output")
+
+        output_rows = [
+            ("Metric", "Value"),
+            ("NOI (Stabilized)", results.noi_stabilized),
+            ("Exit Value", results.exit_value),
+            ("Total Cost", results.total_cost),
+            ("Profit", results.profit),
+            ("Profit Margin (%)", results.profit_margin_pct),
+            ("Computed At", results.computed_at.isoformat()),
+        ]
+
+        for r, (metric, value) in enumerate(output_rows, start=1):
+            ws_output.cell(row=r, column=1, value=metric)
+            cell = ws_output.cell(row=r, column=2, value=value)
+            # Apply currency format for numeric values (rows 2-5)
+            if r in (2, 3, 4, 5) and isinstance(value, (int, float)):
+                cell.number_format = currency_fmt
+            elif r == 6 and isinstance(value, (int, float)):
+                cell.number_format = pct_fmt
+
+        for col in range(1, 3):
+            cell = ws_output.cell(row=1, column=col)
+            cell.font = header_font_white
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        ws_output.column_dimensions["A"].width = 25
+        ws_output.column_dimensions["B"].width = 25
+
+        # Write to bytes
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return buffer.read()
