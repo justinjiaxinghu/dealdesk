@@ -30,7 +30,7 @@ class OpenAILLMProvider(LLMProvider):
     def __init__(self, client: AsyncOpenAI | None = None) -> None:
         self._client = client or AsyncOpenAI(api_key=settings.openai_api_key)
         self._model = settings.openai_model
-        self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
+        self._tavily: AsyncTavilyClient | None = None
 
     async def generate_benchmarks(
         self, location: Location, property_type: PropertyType
@@ -258,7 +258,9 @@ class OpenAILLMProvider(LLMProvider):
                     args = json.loads(tool_call.function.arguments)
                     query = args.get("query", "")
 
-                    # Call Tavily
+                    # Call Tavily (lazy init)
+                    if self._tavily is None:
+                        self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
                     search_result = await self._tavily.search(
                         query=query,
                         search_depth="advanced",
