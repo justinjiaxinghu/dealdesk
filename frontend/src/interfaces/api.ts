@@ -111,3 +111,22 @@ export interface Benchmark {
   source: string;
   confidence: number;
 }
+
+export interface ValidationSource {
+  url: string;
+  title: string;
+  snippet: string;
+}
+
+export interface FieldValidation {
+  id: string;
+  deal_id: string;
+  field_key: string;
+  om_value: number | null;
+  market_value: number | null;
+  status: string;
+  explanation: string;
+  sources: ValidationSource[];
+  confidence: number;
+  created_at: string;
+}
