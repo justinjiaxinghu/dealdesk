@@ -71,6 +71,7 @@ class ValidationService:
                     for s in r.sources
                 ],
                 confidence=r.confidence,
+                search_steps=r.search_steps,
             )
             for r in results
         ]

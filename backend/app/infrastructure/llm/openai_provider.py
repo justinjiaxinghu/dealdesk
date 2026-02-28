@@ -170,13 +170,83 @@ class OpenAILLMProvider(LLMProvider):
             square_feet=float(sq_ft) if sq_ft is not None else None,
         )
 
+    async def _run_search_phase(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        phase: str,
+        max_rounds: int,
+        search_depth: str,
+        max_results: int,
+    ) -> tuple[str, list[dict]]:
+        """Run one phase of the validation search loop.
+
+        Returns (final_content, search_steps) where search_steps is a list of
+        {"phase": str, "query": str, "results": [{"url", "title", "snippet"}]}.
+        """
+        search_steps: list[dict] = []
+
+        if self._tavily is None:
+            self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
+
+        response = None
+        for _ in range(max_rounds):
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                tools=tools,
+                temperature=0.2,
+            )
+            choice = response.choices[0]
+
+            if choice.finish_reason == "tool_calls":
+                messages.append(choice.message.model_dump())
+
+                for tool_call in choice.message.tool_calls:
+                    args = json.loads(tool_call.function.arguments)
+                    query = args.get("query", "")
+
+                    search_result = await self._tavily.search(
+                        query=query,
+                        search_depth=search_depth,
+                        max_results=max_results,
+                    )
+
+                    step_results = [
+                        {
+                            "url": r.get("url", ""),
+                            "title": r.get("title", ""),
+                            "snippet": r.get("content", "")[:500],
+                        }
+                        for r in search_result.get("results", [])
+                    ]
+
+                    search_steps.append({
+                        "phase": phase,
+                        "query": query,
+                        "results": step_results,
+                    })
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(step_results),
+                    })
+            else:
+                break
+
+        content = response.choices[0].message.content or "{}" if response else "{}"
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+
+        return content, search_steps
+
     async def validate_om_fields(
         self,
         deal: Deal,
         fields: list[ExtractedField],
         benchmarks: list[Assumption],
     ) -> list[FieldValidationResult]:
-        # Build context for the LLM
         fields_text = "\n".join(
             f"  - {f.field_key}: {f.value_number} {f.unit or ''}"
             for f in fields
@@ -187,33 +257,7 @@ class OpenAILLMProvider(LLMProvider):
             for a in benchmarks
         )
 
-        system_prompt = (
-            "You are a commercial real estate analyst validating an Offering Memorandum. "
-            "You have access to a web_search tool to look up current market data. "
-            "For each financial metric from the OM, research the local market, compare "
-            "the OM value to what you find, and assess whether it is reasonable.\n\n"
-            "You MUST cite your sources. Every claim about market data must reference "
-            "a specific source from your web searches.\n\n"
-            "Only validate financial/operational metrics (rent, vacancy, cap rate, expenses, etc.). "
-            "Skip descriptive fields like address, square footage, or property name."
-        )
-
-        user_prompt = (
-            f"Property: {deal.property_type.value} at {deal.address}, {deal.city}, {deal.state}\n"
-            f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
-            f"OM Extracted Fields:\n{fields_text}\n\n"
-            f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
-            "Use the web_search tool to research current market data for this property's "
-            "submarket. Then return a JSON object with a single key 'validations' containing "
-            "an array. Each object must have:\n"
-            '  "field_key": string (matching the OM field key)\n'
-            '  "om_value": number (the OM value)\n'
-            '  "market_value": number or null (market reference point)\n'
-            '  "status": one of "within_range", "above_market", "below_market", "suspicious", "insufficient_data"\n'
-            '  "explanation": string (detailed explanation citing sources with [Source Title](URL) markdown links)\n'
-            '  "sources": array of {"url": string, "title": string, "snippet": string}\n'
-            '  "confidence": number 0-1\n'
-        )
+        property_desc = f"{deal.property_type.value} at {deal.address}, {deal.city}, {deal.state}"
 
         tools = [
             {
@@ -235,68 +279,74 @@ class OpenAILLMProvider(LLMProvider):
             }
         ]
 
-        messages: list[dict] = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+        # --- Phase 1: Quick surface search ---
+        quick_system = (
+            "You are a commercial real estate analyst doing a quick validation of an Offering Memorandum. "
+            "Do 1-2 fast web searches to spot-check the key financial metrics. "
+            "Only validate financial/operational metrics (rent, vacancy, cap rate, expenses, etc.). "
+            "Skip descriptive fields like address, square footage, or property name."
+        )
+        quick_user = (
+            f"Property: {property_desc}\n"
+            f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
+            f"OM Extracted Fields:\n{fields_text}\n\n"
+            f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
+            "Do a quick market check with 1-2 web searches. Then return a JSON object with key "
+            "'validations' containing an array. Each object must have:\n"
+            '  "field_key": string, "om_value": number, "market_value": number or null,\n'
+            '  "status": "within_range"|"above_market"|"below_market"|"suspicious"|"insufficient_data",\n'
+            '  "explanation": string (cite sources with [Title](URL)),\n'
+            '  "sources": [{"url": string, "title": string, "snippet": string}],\n'
+            '  "confidence": number 0-1\n'
+        )
+
+        quick_messages: list[dict] = [
+            {"role": "system", "content": quick_system},
+            {"role": "user", "content": quick_user},
         ]
 
-        # Agentic loop: let GPT-4o call web_search as many times as it needs
-        for _ in range(10):  # max 10 tool call rounds
-            response = await self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                tools=tools,
-                temperature=0.2,
-            )
+        quick_content, quick_steps = await self._run_search_phase(
+            quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
+        )
 
-            choice = response.choices[0]
+        quick_data = json.loads(quick_content)
+        quick_validations = quick_data.get("validations", [])
 
-            if choice.finish_reason == "tool_calls":
-                messages.append(choice.message.model_dump())
+        # --- Phase 2: Deep research ---
+        quick_summary = json.dumps(quick_validations, indent=2)
 
-                for tool_call in choice.message.tool_calls:
-                    args = json.loads(tool_call.function.arguments)
-                    query = args.get("query", "")
+        deep_system = (
+            "You are a commercial real estate analyst doing a thorough validation of an Offering Memorandum. "
+            "You have already done a quick check (results below). Now do deeper research: "
+            "search for more specific data, comparable transactions, market reports, and submarket analysis. "
+            "Confirm or revise your initial assessment. Cite all sources.\n\n"
+            "Only validate financial/operational metrics. Skip descriptive fields."
+        )
+        deep_user = (
+            f"Property: {property_desc}\n"
+            f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
+            f"OM Extracted Fields:\n{fields_text}\n\n"
+            f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
+            f"Quick Assessment Results:\n{quick_summary}\n\n"
+            "Now do deeper research with more targeted searches. Return the same JSON format "
+            "with updated/revised validations. Include ALL sources (from quick and deep searches).\n"
+            "Format: JSON with key 'validations', each with: field_key, om_value, market_value, "
+            "status, explanation (cite with [Title](URL)), sources [{url, title, snippet}], confidence.\n"
+        )
 
-                    # Call Tavily (lazy init)
-                    if self._tavily is None:
-                        self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
-                    search_result = await self._tavily.search(
-                        query=query,
-                        search_depth="advanced",
-                        max_results=5,
-                    )
+        deep_messages: list[dict] = [
+            {"role": "system", "content": deep_system},
+            {"role": "user", "content": deep_user},
+        ]
 
-                    results_text = json.dumps(
-                        [
-                            {
-                                "title": r.get("title", ""),
-                                "url": r.get("url", ""),
-                                "content": r.get("content", "")[:500],
-                            }
-                            for r in search_result.get("results", [])
-                        ]
-                    )
+        deep_content, deep_steps = await self._run_search_phase(
+            deep_messages, tools, "deep", max_rounds=10, search_depth="advanced", max_results=5
+        )
 
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": results_text,
-                        }
-                    )
-            else:
-                # Final response — parse JSON
-                break
+        deep_data = json.loads(deep_content)
+        validations_raw = deep_data.get("validations", [])
 
-        content = response.choices[0].message.content or "{}"
-
-        # Strip markdown code fences if present
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1].rsplit("```", 1)[0]
-
-        data = json.loads(content)
-        validations_raw = data.get("validations", [])
+        all_search_steps = quick_steps + deep_steps
 
         return [
             FieldValidationResult(
@@ -314,6 +364,7 @@ class OpenAILLMProvider(LLMProvider):
                     for s in v.get("sources", [])
                 ],
                 confidence=float(v.get("confidence", 0.5)),
+                search_steps=all_search_steps,
             )
             for v in validations_raw
         ]
