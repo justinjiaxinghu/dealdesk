@@ -218,6 +218,18 @@ class ValidationSourceResponse(BaseModel):
     snippet: str
 
 
+class SearchStepResultResponse(BaseModel):
+    url: str
+    title: str
+    snippet: str
+
+
+class SearchStepResponse(BaseModel):
+    phase: str
+    query: str
+    results: list[SearchStepResultResponse] = []
+
+
 class FieldValidationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -230,4 +242,5 @@ class FieldValidationResponse(BaseModel):
     explanation: str
     sources: list[ValidationSourceResponse] = []
     confidence: float
+    search_steps: list[SearchStepResponse] = []
     created_at: datetime

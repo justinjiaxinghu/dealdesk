@@ -117,6 +117,18 @@ export interface ValidationSource {
   snippet: string;
 }
 
+export interface SearchStepResult {
+  url: string;
+  title: string;
+  snippet: string;
+}
+
+export interface SearchStep {
+  phase: string;
+  query: string;
+  results: SearchStepResult[];
+}
+
 export interface FieldValidation {
   id: string;
   deal_id: string;
@@ -127,5 +139,6 @@ export interface FieldValidation {
   explanation: string;
   sources: ValidationSource[];
   confidence: number;
+  search_steps: SearchStep[];
   created_at: string;
 }
