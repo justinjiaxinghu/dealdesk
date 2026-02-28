@@ -8,10 +8,12 @@ import type {
   Deal,
   Document,
   ExtractedField,
+  FieldValidation,
 } from "@/interfaces/api";
 import { assumptionService } from "@/services/assumption.service";
 import { dealService } from "@/services/deal.service";
 import { documentService } from "@/services/document.service";
+import { validationService } from "@/services/validation.service";
 
 // ---------------------------------------------------------------------------
 // useDeals – fetches the deal list
@@ -50,6 +52,7 @@ export function useDeal(id: string) {
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [assumptionSets, setAssumptionSets] = useState<AssumptionSet[]>([]);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
+  const [validations, setValidations] = useState<FieldValidation[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
 
@@ -82,6 +85,10 @@ export function useDeal(id: string) {
         const a = await assumptionService.listAssumptions(firstSet.id);
         setAssumptions(a);
       }
+
+      // Fetch field validations
+      const vals = await validationService.list(id);
+      setValidations(vals);
     } catch (err) {
       console.error("Failed to fetch deal data", err);
     } finally {
@@ -100,6 +107,7 @@ export function useDeal(id: string) {
     fields,
     assumptionSets,
     assumptions,
+    validations,
     loading,
     refresh,
   };
