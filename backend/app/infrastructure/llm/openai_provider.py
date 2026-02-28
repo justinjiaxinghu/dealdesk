@@ -12,6 +12,8 @@ from app.domain.value_objects.types import (
     BenchmarkSuggestion,
     Location,
     NormalizedField,
+    PageText,
+    QuickExtractResult,
     RawField,
 )
 
@@ -41,7 +43,7 @@ class OpenAILLMProvider(LLMProvider):
             f'  "source": string (data source description)\n'
             f'  "confidence": number between 0 and 1\n\n'
             f"Include at least: rent_psf_yr, vacancy_rate, cap_rate, opex_ratio, "
-            f"purchase_price_psf."
+            f"purchase_price (total purchase price, not per square foot)."
         )
 
         response = await self._client.chat.completions.create(
@@ -113,3 +115,50 @@ class OpenAILLMProvider(LLMProvider):
             )
             for f in fields_raw
         ]
+
+    async def quick_extract_deal_info(
+        self, pages: list[PageText]
+    ) -> QuickExtractResult:
+        valid_property_types = [pt.value for pt in PropertyType]
+        text = "\n\n".join(
+            f"--- Page {p.page_number} ---\n{p.text}" for p in pages
+        )
+
+        prompt = (
+            "You are a commercial real estate document parser. Extract the basic "
+            "deal information from this Offering Memorandum text.\n\n"
+            f"Document text:\n{text}\n\n"
+            "Return a JSON object with these exact keys:\n"
+            '  "name": string - a short deal name (e.g. "Lund Pointe Apartments" '
+            'or "100 Main St Acquisition")\n'
+            '  "address": string - street address\n'
+            '  "city": string - city name\n'
+            '  "state": string - two-letter state abbreviation\n'
+            f'  "property_type": string - MUST be one of: {json.dumps(valid_property_types)}\n'
+            '  "square_feet": number or null - total square footage if mentioned\n\n'
+            "Use null for any field you cannot determine from the text."
+        )
+
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+
+        content = response.choices[0].message.content or "{}"
+        data = json.loads(content)
+
+        sq_ft = data.get("square_feet")
+        raw_pt = data.get("property_type")
+        # Validate against enum; fall back to null if LLM returns invalid value
+        pt = raw_pt if raw_pt in valid_property_types else None
+
+        return QuickExtractResult(
+            name=data.get("name"),
+            address=data.get("address"),
+            city=data.get("city"),
+            state=data.get("state"),
+            property_type=pt,
+            square_feet=float(sq_ft) if sq_ft is not None else None,
+        )

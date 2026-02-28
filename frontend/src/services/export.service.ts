@@ -1,15 +1,13 @@
 // frontend/src/services/export.service.ts
 // Excel export operations.
 
-import type { ExportRecord } from "@/interfaces/api";
-import { apiFetch } from "./api-client";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/v1";
 
 export const exportService = {
-  /** Export an assumption set result to XLSX. */
-  async exportXlsx(setId: string): Promise<ExportRecord> {
-    return apiFetch<ExportRecord>(
-      `/assumption-sets/${setId}/export/xlsx`,
-      { method: "POST" },
-    );
+  /** Download the XLSX file for an assumption set. */
+  downloadXlsx(setId: string): void {
+    const url = `${API_BASE}/assumption-sets/${setId}/export/xlsx`;
+    window.open(url, "_blank");
   },
 };

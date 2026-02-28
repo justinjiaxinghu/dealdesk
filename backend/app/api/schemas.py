@@ -167,24 +167,6 @@ class BulkUpdateAssumptionsRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Model Result
-# ---------------------------------------------------------------------------
-
-
-class ModelResultResponse(BaseModel):
-    model_config = {"from_attributes": True}
-
-    id: UUID
-    set_id: UUID
-    noi_stabilized: float
-    exit_value: float
-    total_cost: float
-    profit: float
-    profit_margin_pct: float
-    computed_at: datetime
-
-
-# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
@@ -207,6 +189,15 @@ class ExportResponse(BaseModel):
 
 class GenerateBenchmarksRequest(BaseModel):
     pass  # Uses deal location data; no additional input required
+
+
+class QuickExtractResponse(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    property_type: str | None = None
+    square_feet: float | None = None
 
 
 class BenchmarkResponse(BaseModel):

@@ -1,12 +1,11 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 import { AssumptionEditor } from "@/components/assumptions/assumption-editor";
 import { DealProgressBar } from "@/components/deals/deal-progress-bar";
 import { ProcessingTracker } from "@/components/documents/processing-tracker";
 import { ExtractedFieldsTable } from "@/components/extraction/extracted-fields-table";
-import { ModelOutputs } from "@/components/model/model-outputs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
 import { assumptionService } from "@/services/assumption.service";
+import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
-import { modelService } from "@/services/model.service";
 
 export default function DealWorkspacePage({
   params,
@@ -31,18 +30,90 @@ export default function DealWorkspacePage({
     deal,
     documents,
     fields,
-    tables,
     assumptionSets,
     assumptions,
-    modelResult,
     loading,
     refresh,
   } = useDeal(id);
 
-  const [computing, setComputing] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pipelineStep, setPipelineStep] = useState<
+    "extract" | "assumptions" | null
+  >(null);
+  const pipelineRanRef = useRef(false);
+
+  // Auto-pipeline: chain extraction polling → benchmark generation.
+  // Depends only on [loading] — fires once when initial data arrives.
+  // The pipeline polls internally for documents/extraction/benchmarks,
+  // so it handles the race condition where navigation happens before upload completes.
+  useEffect(() => {
+    if (loading || !deal || pipelineRanRef.current) return;
+
+    // Everything already done — no pipeline needed
+    const allDocsComplete =
+      documents.length > 0 &&
+      documents.every((d) => d.processing_status === "complete");
+    if (allDocsComplete && assumptions.length > 0) return;
+
+    pipelineRanRef.current = true;
+    let cancelled = false;
+
+    async function runPipeline() {
+      try {
+        // Step 1: Wait for documents to appear + extraction to complete
+        setPipelineStep("extract");
+        let extractionDone = false;
+        while (!extractionDone && !cancelled) {
+          await new Promise((r) => setTimeout(r, 2000));
+          if (cancelled) return;
+          const docs = await documentService.list(id);
+          if (docs.length === 0) continue; // upload hasn't finished yet
+          extractionDone = docs.every(
+            (d) =>
+              d.processing_status === "complete" ||
+              d.processing_status === "error",
+          );
+        }
+        if (cancelled) return;
+        await refresh();
+
+        // Step 2: Generate benchmarks if none exist yet
+        const freshSets = await assumptionService.listSets(id);
+        const freshSetId = freshSets.length > 0 ? freshSets[0].id : null;
+
+        let freshAssumptions: typeof assumptions = [];
+        if (freshSetId) {
+          freshAssumptions =
+            await assumptionService.listAssumptions(freshSetId);
+        }
+
+        if (freshAssumptions.length === 0) {
+          if (cancelled) return;
+          setPipelineStep("assumptions");
+          await assumptionService.generateBenchmarks(id);
+          if (cancelled) return;
+          await refresh();
+        }
+      } catch (err) {
+        console.error("Auto-pipeline error:", err);
+        setActionError(
+          err instanceof Error ? err.message : "Pipeline step failed",
+        );
+      } finally {
+        if (!cancelled) {
+          setPipelineStep(null);
+        }
+      }
+    }
+
+    runPipeline();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   if (loading) {
     return <div className="text-muted-foreground py-12">Loading deal...</div>;
@@ -56,36 +127,9 @@ export default function DealWorkspacePage({
 
   const activeSetId = assumptionSets.length > 0 ? assumptionSets[0].id : null;
 
-  async function handleCompute() {
+  function handleExport() {
     if (!activeSetId) return;
-    setComputing(true);
-    setActionError(null);
-    try {
-      await modelService.compute(activeSetId);
-      await refresh();
-    } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : "Failed to compute model",
-      );
-    } finally {
-      setComputing(false);
-    }
-  }
-
-  async function handleExport() {
-    if (!activeSetId) return;
-    setExporting(true);
-    setActionError(null);
-    try {
-      await exportService.exportXlsx(activeSetId);
-      await refresh();
-    } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : "Failed to export",
-      );
-    } finally {
-      setExporting(false);
-    }
+    exportService.downloadXlsx(activeSetId);
   }
 
   async function handleGenerateBenchmarks() {
@@ -121,21 +165,12 @@ export default function DealWorkspacePage({
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleCompute}
-            disabled={computing || !activeSetId}
-            variant="outline"
-          >
-            {computing ? "Computing..." : "Compute Model"}
-          </Button>
-          <Button
-            onClick={handleExport}
-            disabled={exporting || !activeSetId}
-          >
-            {exporting ? "Exporting..." : "Export XLSX"}
-          </Button>
-        </div>
+        <Button
+          onClick={handleExport}
+          disabled={!activeSetId}
+        >
+          Export XLSX
+        </Button>
       </div>
 
       {actionError && (
@@ -150,7 +185,7 @@ export default function DealWorkspacePage({
         hasDocuments={documents.length > 0}
         hasFields={fields.length > 0}
         hasAssumptions={assumptions.length > 0}
-        hasModelResult={modelResult !== null}
+        activeStep={pipelineStep}
       />
 
       {/* Tabbed Content */}
@@ -159,7 +194,6 @@ export default function DealWorkspacePage({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="extraction">Extraction</TabsTrigger>
           <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
-          <TabsTrigger value="model">Model</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -228,7 +262,7 @@ export default function DealWorkspacePage({
 
         {/* Extraction Tab */}
         <TabsContent value="extraction" className="pt-4">
-          <ExtractedFieldsTable fields={fields} tables={tables} />
+          <ExtractedFieldsTable fields={fields} />
         </TabsContent>
 
         {/* Assumptions Tab */}
@@ -240,28 +274,14 @@ export default function DealWorkspacePage({
               disabled={generatingBenchmarks}
             >
               {generatingBenchmarks
-                ? "Generating..."
-                : "Generate AI Benchmarks"}
+                ? "Regenerating..."
+                : assumptions.length > 0
+                  ? "Regenerate AI Benchmarks"
+                  : "Generate AI Benchmarks"}
             </Button>
           </div>
 
-          {activeSetId ? (
-            <AssumptionEditor
-              setId={activeSetId}
-              assumptions={assumptions}
-              onSaved={refresh}
-            />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No assumption set found. Process a document first to create
-              an assumption set.
-            </p>
-          )}
-        </TabsContent>
-
-        {/* Model Tab */}
-        <TabsContent value="model" className="pt-4">
-          <ModelOutputs result={modelResult} />
+          <AssumptionEditor assumptions={assumptions} />
         </TabsContent>
       </Tabs>
     </div>

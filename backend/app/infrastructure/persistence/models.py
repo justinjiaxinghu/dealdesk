@@ -9,10 +9,27 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    TypeDecorator,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import JSON
+from sqlalchemy.types import CHAR, JSON
+
+
+class UUIDType(TypeDecorator):
+    """Platform-agnostic UUID type. Stores as CHAR(36) on SQLite, native UUID on PostgreSQL."""
+
+    impl = CHAR(36)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return str(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return uuid.UUID(value)
+        return value
 
 
 class Base(DeclarativeBase):
@@ -28,7 +45,7 @@ class DealModel(Base):
     __tablename__ = "deals"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -63,10 +80,10 @@ class DocumentModel(Base):
     __tablename__ = "documents"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     deal_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False
+        UUIDType(), ForeignKey("deals.id"), nullable=False
     )
     document_type: Mapped[str] = mapped_column(String(50), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -103,10 +120,10 @@ class ExtractedFieldModel(Base):
     __tablename__ = "extracted_fields"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     document_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
+        UUIDType(), ForeignKey("documents.id"), nullable=False
     )
     field_key: Mapped[str] = mapped_column(String(255), nullable=False)
     value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -128,10 +145,10 @@ class MarketTableModel(Base):
     __tablename__ = "market_tables"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     document_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
+        UUIDType(), ForeignKey("documents.id"), nullable=False
     )
     table_type: Mapped[str] = mapped_column(String(100), nullable=False)
     headers: Mapped[list | None] = mapped_column(JSON, nullable=True)
@@ -152,10 +169,10 @@ class AssumptionSetModel(Base):
     __tablename__ = "assumption_sets"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     deal_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False
+        UUIDType(), ForeignKey("deals.id"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -170,9 +187,6 @@ class AssumptionSetModel(Base):
     assumptions = relationship(
         "AssumptionModel", back_populates="assumption_set", lazy="selectin"
     )
-    model_results = relationship(
-        "ModelResultModel", back_populates="assumption_set", lazy="selectin"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -184,10 +198,10 @@ class AssumptionModel(Base):
     __tablename__ = "assumptions"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     set_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("assumption_sets.id"), nullable=False
+        UUIDType(), ForeignKey("assumption_sets.id"), nullable=False
     )
     key: Mapped[str] = mapped_column(String(255), nullable=False)
     value_number: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -208,35 +222,6 @@ class AssumptionModel(Base):
 
 
 # ---------------------------------------------------------------------------
-# Model Results
-# ---------------------------------------------------------------------------
-
-
-class ModelResultModel(Base):
-    __tablename__ = "model_results"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    set_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("assumption_sets.id"), nullable=False
-    )
-    noi_stabilized: Mapped[float] = mapped_column(Float, nullable=False)
-    exit_value: Mapped[float] = mapped_column(Float, nullable=False)
-    total_cost: Mapped[float] = mapped_column(Float, nullable=False)
-    profit: Mapped[float] = mapped_column(Float, nullable=False)
-    profit_margin_pct: Mapped[float] = mapped_column(Float, nullable=False)
-    computed_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
-
-    # Relationships
-    assumption_set = relationship(
-        "AssumptionSetModel", back_populates="model_results"
-    )
-
-
-# ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
 
@@ -245,13 +230,13 @@ class ExportModel(Base):
     __tablename__ = "exports"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUIDType(), primary_key=True, default=uuid.uuid4
     )
     deal_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False
+        UUIDType(), ForeignKey("deals.id"), nullable=False
     )
     set_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("assumption_sets.id"), nullable=False
+        UUIDType(), ForeignKey("assumption_sets.id"), nullable=False
     )
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     export_type: Mapped[str] = mapped_column(

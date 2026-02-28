@@ -13,7 +13,6 @@ from app.domain.interfaces.repositories import (
     ExportRepository,
     ExtractedFieldRepository,
     MarketTableRepository,
-    ModelResultRepository,
 )
 
 __all__ = [
@@ -23,7 +22,6 @@ __all__ = [
     "MarketTableRepository",
     "AssumptionSetRepository",
     "AssumptionRepository",
-    "ModelResultRepository",
     "ExportRepository",
     "DocumentProcessor",
     "LLMProvider",

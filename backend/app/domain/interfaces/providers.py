@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from app.domain.entities import Assumption, Deal, ModelResult
+from app.domain.entities import Assumption, Deal
 from app.domain.value_objects import (
     BenchmarkSuggestion,
     ExtractedTable,
@@ -10,6 +10,7 @@ from app.domain.value_objects import (
     NormalizedField,
     PageText,
     PropertyType,
+    QuickExtractResult,
     RawField,
 )
 
@@ -33,6 +34,11 @@ class LLMProvider(ABC):
         self, raw_fields: list[RawField]
     ) -> list[NormalizedField]: ...
 
+    @abstractmethod
+    async def quick_extract_deal_info(
+        self, pages: list[PageText]
+    ) -> QuickExtractResult: ...
+
 
 class FileStorage(ABC):
     @abstractmethod
@@ -48,5 +54,5 @@ class FileStorage(ABC):
 class ExcelExporter(ABC):
     @abstractmethod
     async def export(
-        self, deal: Deal, assumptions: list[Assumption], results: ModelResult
+        self, deal: Deal, assumptions: list[Assumption]
     ) -> bytes: ...

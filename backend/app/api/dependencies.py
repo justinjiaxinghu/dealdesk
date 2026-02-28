@@ -58,9 +58,6 @@ from app.infrastructure.persistence.extraction_repo import (
     SqlAlchemyExtractedFieldRepository,
     SqlAlchemyMarketTableRepository,
 )
-from app.infrastructure.persistence.model_result_repo import (
-    SqlAlchemyModelResultRepository,
-)
 
 
 def get_deal_repo(session: DbSession) -> SqlAlchemyDealRepository:
@@ -87,10 +84,6 @@ def get_assumption_repo(session: DbSession) -> SqlAlchemyAssumptionRepository:
     return SqlAlchemyAssumptionRepository(session)
 
 
-def get_model_result_repo(session: DbSession) -> SqlAlchemyModelResultRepository:
-    return SqlAlchemyModelResultRepository(session)
-
-
 def get_export_repo(session: DbSession) -> SqlAlchemyExportRepository:
     return SqlAlchemyExportRepository(session)
 
@@ -103,7 +96,6 @@ from app.services.benchmark_service import BenchmarkService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
-from app.services.model_service import ModelService
 
 
 def get_deal_service(
@@ -156,26 +148,6 @@ def get_benchmark_service(
     )
 
 
-def get_model_service(
-    deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
-    assumption_set_repo: Annotated[
-        SqlAlchemyAssumptionSetRepository, Depends(get_assumption_set_repo)
-    ],
-    assumption_repo: Annotated[
-        SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)
-    ],
-    model_result_repo: Annotated[
-        SqlAlchemyModelResultRepository, Depends(get_model_result_repo)
-    ],
-) -> ModelService:
-    return ModelService(
-        deal_repo=deal_repo,
-        assumption_set_repo=assumption_set_repo,
-        assumption_repo=assumption_repo,
-        model_result_repo=model_result_repo,
-    )
-
-
 def get_export_service(
     deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
     assumption_set_repo: Annotated[
@@ -184,16 +156,12 @@ def get_export_service(
     assumption_repo: Annotated[
         SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)
     ],
-    model_result_repo: Annotated[
-        SqlAlchemyModelResultRepository, Depends(get_model_result_repo)
-    ],
     export_repo: Annotated[SqlAlchemyExportRepository, Depends(get_export_repo)],
 ) -> ExportService:
     return ExportService(
         deal_repo=deal_repo,
         assumption_set_repo=assumption_set_repo,
         assumption_repo=assumption_repo,
-        model_result_repo=model_result_repo,
         export_repo=export_repo,
         file_storage=_file_storage,
         excel_exporter=_excel_exporter,

@@ -84,17 +84,6 @@ export interface Assumption {
   updated_at: string;
 }
 
-export interface ModelResult {
-  id: string;
-  set_id: string;
-  noi_stabilized: number;
-  exit_value: number;
-  total_cost: number;
-  profit: number;
-  profit_margin_pct: number;
-  computed_at: string;
-}
-
 export interface ExportRecord {
   id: string;
   deal_id: string;
@@ -102,6 +91,15 @@ export interface ExportRecord {
   file_path: string;
   export_type: string;
   created_at: string;
+}
+
+export interface QuickExtractResult {
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  property_type: string | null;
+  square_feet: number | null;
 }
 
 export interface Benchmark {

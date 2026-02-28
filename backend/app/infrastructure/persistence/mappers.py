@@ -8,7 +8,6 @@ from app.domain.entities.deal import Deal
 from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
-from app.domain.entities.model_result import ModelResult
 from app.domain.value_objects.enums import (
     DealStatus,
     DocumentType,
@@ -26,7 +25,6 @@ from app.infrastructure.persistence.models import (
     ExportModel,
     ExtractedFieldModel,
     MarketTableModel,
-    ModelResultModel,
 )
 
 
@@ -240,37 +238,6 @@ def assumption_to_model(entity: Assumption) -> AssumptionModel:
         source_ref=entity.source_ref,
         notes=entity.notes,
         updated_at=entity.updated_at,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Model Result
-# ---------------------------------------------------------------------------
-
-
-def model_result_to_entity(model: ModelResultModel) -> ModelResult:
-    return ModelResult(
-        id=model.id,
-        set_id=model.set_id,
-        noi_stabilized=model.noi_stabilized,
-        exit_value=model.exit_value,
-        total_cost=model.total_cost,
-        profit=model.profit,
-        profit_margin_pct=model.profit_margin_pct,
-        computed_at=model.computed_at,
-    )
-
-
-def model_result_to_model(entity: ModelResult) -> ModelResultModel:
-    return ModelResultModel(
-        id=entity.id,
-        set_id=entity.set_id,
-        noi_stabilized=entity.noi_stabilized,
-        exit_value=entity.exit_value,
-        total_cost=entity.total_cost,
-        profit=entity.profit,
-        profit_margin_pct=entity.profit_margin_pct,
-        computed_at=entity.computed_at,
     )
 
 

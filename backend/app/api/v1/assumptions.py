@@ -100,4 +100,5 @@ async def generate_benchmarks(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    return [BenchmarkResponse.model_validate(s) for s in suggestions]
+    from dataclasses import asdict
+    return [BenchmarkResponse.model_validate(asdict(s)) for s in suggestions]

@@ -10,7 +10,6 @@ from app.domain.entities import (
     Export,
     ExtractedField,
     MarketTable,
-    ModelResult,
 )
 from app.domain.value_objects import DealFilters, ProcessingStep
 
@@ -84,14 +83,6 @@ class AssumptionRepository(ABC):
 
     @abstractmethod
     async def update(self, assumption: Assumption) -> Assumption: ...
-
-
-class ModelResultRepository(ABC):
-    @abstractmethod
-    async def create(self, result: ModelResult) -> ModelResult: ...
-
-    @abstractmethod
-    async def get_by_set_id(self, set_id: UUID) -> ModelResult | None: ...
 
 
 class ExportRepository(ABC):

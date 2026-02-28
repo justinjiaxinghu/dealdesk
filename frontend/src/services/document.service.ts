@@ -5,6 +5,7 @@ import type {
   Document,
   ExtractedField,
   MarketTable,
+  QuickExtractResult,
 } from "@/interfaces/api";
 import { apiFetch, apiUpload } from "./api-client";
 
@@ -46,5 +47,12 @@ export const documentService = {
     return apiFetch<MarketTable[]>(
       `/deals/${dealId}/documents/${documentId}/tables`,
     );
+  },
+
+  /** Quick-extract basic deal info from a PDF (lightweight, pre-submit). */
+  async quickExtract(file: File): Promise<QuickExtractResult> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiUpload<QuickExtractResult>(`/documents/quick-extract`, formData);
   },
 };

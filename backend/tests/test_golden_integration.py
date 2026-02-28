@@ -31,8 +31,7 @@ from uuid import UUID
 import pytest
 from openai import AsyncOpenAI
 
-from app.domain.entities.assumption import Assumption
-from app.domain.value_objects.enums import ProcessingStatus, PropertyType, SourceType
+from app.domain.value_objects.enums import ProcessingStatus, PropertyType
 from app.infrastructure.document_processing.pdfplumber_processor import (
     PdfPlumberProcessor,
 )
@@ -43,7 +42,6 @@ from app.services.benchmark_service import BenchmarkService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
-from app.services.model_service import ModelService
 from tests.conftest import (
     InMemoryAssumptionRepository,
     InMemoryAssumptionSetRepository,
@@ -52,7 +50,6 @@ from tests.conftest import (
     InMemoryExportRepository,
     InMemoryExtractedFieldRepository,
     InMemoryMarketTableRepository,
-    InMemoryModelResultRepository,
 )
 
 # Path to the fixture OM PDF
@@ -132,7 +129,6 @@ def repos():
         "market_table": InMemoryMarketTableRepository(),
         "assumption_set": InMemoryAssumptionSetRepository(),
         "assumption": InMemoryAssumptionRepository(),
-        "model_result": InMemoryModelResultRepository(),
         "export": InMemoryExportRepository(),
     }
 
@@ -163,17 +159,10 @@ def services(repos, tmp_path):
         assumption_repo=repos["assumption"],
         llm_provider=llm_provider,
     )
-    model_service = ModelService(
-        deal_repo=repos["deal"],
-        assumption_set_repo=repos["assumption_set"],
-        assumption_repo=repos["assumption"],
-        model_result_repo=repos["model_result"],
-    )
     export_service = ExportService(
         deal_repo=repos["deal"],
         assumption_set_repo=repos["assumption_set"],
         assumption_repo=repos["assumption"],
-        model_result_repo=repos["model_result"],
         export_repo=repos["export"],
         file_storage=file_storage,
         excel_exporter=excel_exporter,
@@ -183,7 +172,6 @@ def services(repos, tmp_path):
         "deal": deal_service,
         "document": document_service,
         "benchmark": benchmark_service,
-        "model": model_service,
         "export": export_service,
     }
 
@@ -268,86 +256,7 @@ class TestGoldenPipeline:
         assumptions = await repos["assumption"].get_by_set_id(base_set.id)
         assert len(assumptions) > 0, "No assumptions created from benchmarks"
 
-        # -- 4. Set assumptions to OM-known values ----------------------------
-        # Override with exact OM values so we can verify deterministic output
-        om_assumptions = [
-            Assumption(
-                set_id=base_set.id,
-                key="rent_psf_yr",
-                value_number=OM_RENT_PSF_YR,
-                unit="$/sf/yr",
-                source_type=SourceType.OM,
-                source_ref="Pro Forma Income Statement, Page 10",
-            ),
-            Assumption(
-                set_id=base_set.id,
-                key="vacancy_rate",
-                value_number=OM_VACANCY_RATE,
-                unit="%",
-                source_type=SourceType.OM,
-                source_ref="Pro Forma Income Statement, Page 10",
-            ),
-            Assumption(
-                set_id=base_set.id,
-                key="opex_ratio",
-                value_number=OM_OPEX_RATIO,
-                unit="ratio",
-                source_type=SourceType.OM,
-                source_ref="Pro Forma Income Statement, Page 10",
-            ),
-            Assumption(
-                set_id=base_set.id,
-                key="cap_rate",
-                value_number=OM_IMPLIED_CAP_RATE,
-                unit="%",
-                source_type=SourceType.OM,
-                source_ref="Implied from Offering Price / Pro Forma NOI",
-            ),
-            Assumption(
-                set_id=base_set.id,
-                key="purchase_price",
-                value_number=OM_OFFERING_PRICE,
-                unit="$",
-                source_type=SourceType.OM,
-                source_ref="Property Summary, Page 4",
-            ),
-        ]
-        await repos["assumption"].bulk_upsert(om_assumptions)
-
-        # -- 5. Compute financial model ----------------------------------------
-        result = await services["model"].compute(base_set.id)
-        assert result is not None
-
-        print(f"\n  Model Output:")
-        print(f"    NOI (stabilized):  ${result.noi_stabilized:,.2f}")
-        print(f"    Exit value:        ${result.exit_value:,.2f}")
-        print(f"    Total cost:        ${result.total_cost:,.2f}")
-        print(f"    Profit:            ${result.profit:,.2f}")
-        print(f"    Profit margin:     {result.profit_margin_pct:.2f}%")
-
-        # -- 6. Assert outputs match OM Pro Forma (tight tolerance) -----------
-        # Since we set exact OM values as assumptions, the model output
-        # should closely match the OM's stated NOI.
-        assert result.noi_stabilized == pytest.approx(OM_PRO_FORMA_NOI, rel=0.01), (
-            f"NOI {result.noi_stabilized:,.2f} not within 1% of "
-            f"OM Pro Forma NOI {OM_PRO_FORMA_NOI:,.2f}"
-        )
-
-        # Exit value = NOI / cap_rate ≈ offering price
-        assert result.exit_value == pytest.approx(OM_OFFERING_PRICE, rel=0.01), (
-            f"Exit value {result.exit_value:,.2f} not within 1% of "
-            f"Offering Price {OM_OFFERING_PRICE:,.2f}"
-        )
-
-        # Total cost = purchase_price (no closing costs or capex in this OM)
-        assert result.total_cost == pytest.approx(OM_OFFERING_PRICE, abs=1.0)
-
-        # Profit should be near zero (exit value ≈ purchase price at implied cap rate)
-        assert abs(result.profit) < 50_000, (
-            f"Profit {result.profit:,.2f} unexpectedly large"
-        )
-
-        # -- 7. Export to Excel -----------------------------------------------
+        # -- 4. Export to Excel -----------------------------------------------
         export = await services["export"].export_xlsx(base_set.id)
         assert export is not None
         assert export.file_path.endswith(".xlsx")

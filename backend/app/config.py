@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     model_config = {"env_prefix": "DEALDESK_", "env_file": ".env", "env_file_encoding": "utf-8"}
 
-    database_url: str = "postgresql+asyncpg://localhost:5432/dealdesk"
-    database_url_sync: str = "postgresql://localhost:5432/dealdesk"
+    database_url: str = "sqlite+aiosqlite:///./dealdesk.db"
+    database_url_sync: str = "sqlite:///./dealdesk.db"
     file_storage_path: Path = Path("./storage")
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"

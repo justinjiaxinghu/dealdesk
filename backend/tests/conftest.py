@@ -13,7 +13,6 @@ from app.domain.entities import (
     Export,
     ExtractedField,
     MarketTable,
-    ModelResult,
 )
 from app.domain.interfaces.repositories import (
     AssumptionRepository,
@@ -23,7 +22,6 @@ from app.domain.interfaces.repositories import (
     ExportRepository,
     ExtractedFieldRepository,
     MarketTableRepository,
-    ModelResultRepository,
 )
 from app.domain.value_objects.types import DealFilters, ProcessingStep
 
@@ -173,18 +171,6 @@ class InMemoryAssumptionRepository(AssumptionRepository):
     async def update(self, assumption: Assumption) -> Assumption:
         self._store[assumption.id] = assumption
         return assumption
-
-
-class InMemoryModelResultRepository(ModelResultRepository):
-    def __init__(self) -> None:
-        self._store: dict[UUID, ModelResult] = {}
-
-    async def create(self, result: ModelResult) -> ModelResult:
-        self._store[result.set_id] = result
-        return result
-
-    async def get_by_set_id(self, set_id: UUID) -> ModelResult | None:
-        return self._store.get(set_id)
 
 
 class InMemoryExportRepository(ExportRepository):

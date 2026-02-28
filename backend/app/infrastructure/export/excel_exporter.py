@@ -10,7 +10,6 @@ from openpyxl.utils import get_column_letter
 
 from app.domain.entities.assumption import Assumption
 from app.domain.entities.deal import Deal
-from app.domain.entities.model_result import ModelResult
 from app.domain.interfaces.providers import ExcelExporter
 
 
@@ -18,26 +17,23 @@ class OpenpyxlExcelExporter(ExcelExporter):
     """Excel exporter using openpyxl to create .xlsx workbooks."""
 
     async def export(
-        self, deal: Deal, assumptions: list[Assumption], results: ModelResult
+        self, deal: Deal, assumptions: list[Assumption]
     ) -> bytes:
         return await asyncio.to_thread(
-            self._build_workbook, deal, assumptions, results
+            self._build_workbook, deal, assumptions
         )
 
     @staticmethod
     def _build_workbook(
-        deal: Deal, assumptions: list[Assumption], results: ModelResult
+        deal: Deal, assumptions: list[Assumption]
     ) -> bytes:
         wb = Workbook()
 
         # Styles
-        header_font = Font(bold=True, size=12)
         header_fill = PatternFill(
             start_color="4472C4", end_color="4472C4", fill_type="solid"
         )
         header_font_white = Font(bold=True, size=11, color="FFFFFF")
-        currency_fmt = '#,##0.00'
-        pct_fmt = '0.00"%"'
 
         # ---------------------------------------------------------------
         # Sheet 1: Deal Inputs
@@ -97,39 +93,6 @@ class OpenpyxlExcelExporter(ExcelExporter):
 
         for col in range(1, 8):
             ws_assumptions.column_dimensions[get_column_letter(col)].width = 18
-
-        # ---------------------------------------------------------------
-        # Sheet 3: Model Output
-        # ---------------------------------------------------------------
-        ws_output = wb.create_sheet("Model Output")
-
-        output_rows = [
-            ("Metric", "Value"),
-            ("NOI (Stabilized)", results.noi_stabilized),
-            ("Exit Value", results.exit_value),
-            ("Total Cost", results.total_cost),
-            ("Profit", results.profit),
-            ("Profit Margin (%)", results.profit_margin_pct),
-            ("Computed At", results.computed_at.isoformat()),
-        ]
-
-        for r, (metric, value) in enumerate(output_rows, start=1):
-            ws_output.cell(row=r, column=1, value=metric)
-            cell = ws_output.cell(row=r, column=2, value=value)
-            # Apply currency format for numeric values (rows 2-5)
-            if r in (2, 3, 4, 5) and isinstance(value, (int, float)):
-                cell.number_format = currency_fmt
-            elif r == 6 and isinstance(value, (int, float)):
-                cell.number_format = pct_fmt
-
-        for col in range(1, 3):
-            cell = ws_output.cell(row=1, column=col)
-            cell.font = header_font_white
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center")
-
-        ws_output.column_dimensions["A"].width = 25
-        ws_output.column_dimensions["B"].width = 25
 
         # Write to bytes
         buffer = BytesIO()

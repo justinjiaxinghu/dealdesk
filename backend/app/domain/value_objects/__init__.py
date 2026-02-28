@@ -15,6 +15,7 @@ from app.domain.value_objects.types import (
     NormalizedField,
     PageText,
     ProcessingStep,
+    QuickExtractResult,
     RawField,
 )
 
@@ -32,5 +33,6 @@ __all__ = [
     "Location",
     "BenchmarkSuggestion",
     "ProcessingStep",
+    "QuickExtractResult",
     "DealFilters",
 ]

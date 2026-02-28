@@ -59,6 +59,16 @@ class ProcessingStep:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class QuickExtractResult:
+    name: str | None = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    property_type: str | None = None
+    square_feet: float | None = None
+
+
 @dataclass
 class DealFilters:
     property_type: str | None = None

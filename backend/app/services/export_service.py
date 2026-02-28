@@ -12,7 +12,6 @@ from app.domain.interfaces.repositories import (
     AssumptionSetRepository,
     DealRepository,
     ExportRepository,
-    ModelResultRepository,
 )
 
 
@@ -22,7 +21,6 @@ class ExportService:
         deal_repo: DealRepository,
         assumption_set_repo: AssumptionSetRepository,
         assumption_repo: AssumptionRepository,
-        model_result_repo: ModelResultRepository,
         export_repo: ExportRepository,
         file_storage: FileStorage,
         excel_exporter: ExcelExporter,
@@ -30,10 +28,26 @@ class ExportService:
         self._deal_repo = deal_repo
         self._assumption_set_repo = assumption_set_repo
         self._assumption_repo = assumption_repo
-        self._model_result_repo = model_result_repo
         self._export_repo = export_repo
         self._file_storage = file_storage
         self._excel_exporter = excel_exporter
+
+    async def generate_xlsx(self, set_id: UUID) -> tuple[bytes, str]:
+        """Generate XLSX bytes and a filename without storing to disk."""
+        assumption_set = await self._assumption_set_repo.get_by_id(set_id)
+        if assumption_set is None:
+            raise ValueError(f"Assumption set {set_id} not found")
+
+        deal = await self._deal_repo.get_by_id(assumption_set.deal_id)
+        if deal is None:
+            raise ValueError(f"Deal {assumption_set.deal_id} not found")
+
+        assumptions = await self._assumption_repo.get_by_set_id(set_id)
+        xlsx_bytes = await self._excel_exporter.export(deal, assumptions)
+
+        safe_name = deal.name.replace(" ", "_").replace("/", "-")
+        filename = f"{safe_name}_assumptions.xlsx"
+        return xlsx_bytes, filename
 
     async def export_xlsx(self, set_id: UUID) -> Export:
         # Get assumption set
@@ -49,16 +63,8 @@ class ExportService:
         # Get assumptions
         assumptions = await self._assumption_repo.get_by_set_id(set_id)
 
-        # Get latest model result
-        result = await self._model_result_repo.get_by_set_id(set_id)
-        if result is None:
-            raise ValueError(
-                f"No model result found for assumption set {set_id}. "
-                "Run compute first."
-            )
-
         # Generate Excel bytes
-        xlsx_bytes = await self._excel_exporter.export(deal, assumptions, result)
+        xlsx_bytes = await self._excel_exporter.export(deal, assumptions)
 
         # Store file
         file_path = f"exports/{deal.id}/{set_id}.xlsx"
