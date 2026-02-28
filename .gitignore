@@ -18,5 +18,8 @@ frontend/node_modules/
 frontend/.next/
 frontend/out/
 
+# Worktrees
+.worktrees/
+
 # OS
 .DS_Store
