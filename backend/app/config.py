@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = {"env_prefix": "DEALDESK_"}
+    model_config = {"env_prefix": "DEALDESK_", "env_file": ".env", "env_file_encoding": "utf-8"}
 
     database_url: str = "postgresql+asyncpg://localhost:5432/dealdesk"
     database_url_sync: str = "postgresql://localhost:5432/dealdesk"
