@@ -16,9 +16,11 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
+import { ValidationTable } from "@/components/validation/validation-table";
 import { assumptionService } from "@/services/assumption.service";
 import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
+import { validationService } from "@/services/validation.service";
 
 export default function DealWorkspacePage({
   params,
@@ -32,6 +34,7 @@ export default function DealWorkspacePage({
     fields,
     assumptionSets,
     assumptions,
+    validations,
     loading,
     refresh,
   } = useDeal(id);
@@ -39,7 +42,7 @@ export default function DealWorkspacePage({
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<
-    "extract" | "assumptions" | null
+    "extract" | "assumptions" | "validate" | null
   >(null);
   const pipelineRanRef = useRef(false);
 
@@ -54,7 +57,7 @@ export default function DealWorkspacePage({
     const allDocsComplete =
       documents.length > 0 &&
       documents.every((d) => d.processing_status === "complete");
-    if (allDocsComplete && assumptions.length > 0) return;
+    if (allDocsComplete && assumptions.length > 0 && validations.length > 0) return;
 
     pipelineRanRef.current = true;
     let cancelled = false;
@@ -92,6 +95,16 @@ export default function DealWorkspacePage({
           if (cancelled) return;
           setPipelineStep("assumptions");
           await assumptionService.generateBenchmarks(id);
+          if (cancelled) return;
+          await refresh();
+        }
+
+        // Step 3: Validate OM fields
+        const freshValidations = await validationService.list(id);
+        if (freshValidations.length === 0) {
+          if (cancelled) return;
+          setPipelineStep("validate");
+          await validationService.validate(id);
           if (cancelled) return;
           await refresh();
         }
@@ -185,6 +198,7 @@ export default function DealWorkspacePage({
         hasDocuments={documents.length > 0}
         hasFields={fields.length > 0}
         hasAssumptions={assumptions.length > 0}
+        hasValidations={validations.length > 0}
         activeStep={pipelineStep}
       />
 
@@ -194,6 +208,7 @@ export default function DealWorkspacePage({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="extraction">Extraction</TabsTrigger>
           <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
+          <TabsTrigger value="validation">Validation</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -282,6 +297,11 @@ export default function DealWorkspacePage({
           </div>
 
           <AssumptionEditor assumptions={assumptions} />
+        </TabsContent>
+
+        {/* Validation Tab */}
+        <TabsContent value="validation" className="pt-4">
+          <ValidationTable validations={validations} />
         </TabsContent>
       </Tabs>
     </div>
