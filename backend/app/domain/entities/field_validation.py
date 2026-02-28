@@ -17,4 +17,5 @@ class FieldValidation:
     explanation: str = ""
     sources: list[dict] = field(default_factory=list)
     confidence: float = 0.0
+    search_steps: list[dict] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)

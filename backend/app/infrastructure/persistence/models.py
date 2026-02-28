@@ -273,6 +273,7 @@ class FieldValidationModel(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="insufficient_data")
     explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
     sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    search_steps: Mapped[list | None] = mapped_column(JSON, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow

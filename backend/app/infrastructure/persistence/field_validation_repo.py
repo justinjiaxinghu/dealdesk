@@ -37,6 +37,7 @@ class SqlAlchemyFieldValidationRepository:
                 existing.explanation = v.explanation
                 existing.sources = v.sources
                 existing.confidence = v.confidence
+                existing.search_steps = v.search_steps
                 existing.created_at = datetime.utcnow()
                 await self._session.flush()
                 await self._session.refresh(existing)

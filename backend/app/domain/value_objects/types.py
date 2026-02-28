@@ -91,3 +91,4 @@ class FieldValidationResult:
     explanation: str
     sources: list[ValidationSource]
     confidence: float
+    search_steps: list[dict] = field(default_factory=list)

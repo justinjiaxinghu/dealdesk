@@ -197,6 +197,7 @@ def upgrade() -> None:
         ),
         sa.Column("explanation", sa.Text, nullable=False, server_default=""),
         sa.Column("sources", sa.JSON, nullable=True),
+        sa.Column("search_steps", sa.JSON, nullable=True),
         sa.Column("confidence", sa.Float, nullable=False, server_default="0"),
         sa.Column("created_at", sa.DateTime, nullable=False),
     )

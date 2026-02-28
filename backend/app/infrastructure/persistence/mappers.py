@@ -284,6 +284,7 @@ def field_validation_to_entity(model: FieldValidationModel) -> FieldValidation:
         explanation=model.explanation,
         sources=model.sources or [],
         confidence=model.confidence,
+        search_steps=model.search_steps or [],
         created_at=model.created_at,
     )
 
@@ -298,6 +299,7 @@ def field_validation_to_model(entity: FieldValidation) -> FieldValidationModel:
         status=entity.status.value,
         explanation=entity.explanation,
         sources=entity.sources,
+        search_steps=entity.search_steps,
         confidence=entity.confidence,
         created_at=entity.created_at,
     )
