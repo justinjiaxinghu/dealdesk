@@ -44,3 +44,11 @@ class DocumentType(StrEnum):
 
 class ExportType(StrEnum):
     XLSX = "xlsx"
+
+
+class ValidationStatus(StrEnum):
+    WITHIN_RANGE = "within_range"
+    ABOVE_MARKET = "above_market"
+    BELOW_MARKET = "below_market"
+    SUSPICIOUS = "suspicious"
+    INSUFFICIENT_DATA = "insufficient_data"

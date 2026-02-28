@@ -74,3 +74,21 @@ class DealFilters:
     property_type: str | None = None
     status: str | None = None
     city: str | None = None
+
+
+@dataclass(frozen=True)
+class ValidationSource:
+    url: str
+    title: str
+    snippet: str
+
+
+@dataclass(frozen=True)
+class FieldValidationResult:
+    field_key: str
+    om_value: float | None
+    market_value: float | None
+    status: str
+    explanation: str
+    sources: list[ValidationSource]
+    confidence: float

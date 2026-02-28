@@ -6,17 +6,20 @@ from app.domain.value_objects.enums import (
     ProcessingStatus,
     PropertyType,
     SourceType,
+    ValidationStatus,
 )
 from app.domain.value_objects.types import (
     BenchmarkSuggestion,
     DealFilters,
     ExtractedTable,
+    FieldValidationResult,
     Location,
     NormalizedField,
     PageText,
     ProcessingStep,
     QuickExtractResult,
     RawField,
+    ValidationSource,
 )
 
 __all__ = [
@@ -26,6 +29,7 @@ __all__ = [
     "SourceType",
     "DocumentType",
     "ExportType",
+    "ValidationStatus",
     "PageText",
     "ExtractedTable",
     "RawField",
@@ -35,4 +39,6 @@ __all__ = [
     "ProcessingStep",
     "QuickExtractResult",
     "DealFilters",
+    "ValidationSource",
+    "FieldValidationResult",
 ]
