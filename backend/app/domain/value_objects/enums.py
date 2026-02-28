@@ -11,12 +11,6 @@ class PropertyType(StrEnum):
     OTHER = "other"
 
 
-class DealStatus(StrEnum):
-    DRAFT = "draft"
-    PROCESSING = "processing"
-    READY = "ready"
-    EXPORTED = "exported"
-
 
 class ProcessingStatus(StrEnum):
     PENDING = "pending"

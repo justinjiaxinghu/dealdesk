@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from app.domain.value_objects.enums import DealStatus, PropertyType
+from app.domain.value_objects.enums import PropertyType
 
 
 @dataclass
@@ -17,6 +17,5 @@ class Deal:
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
-    status: DealStatus = DealStatus.DRAFT
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)

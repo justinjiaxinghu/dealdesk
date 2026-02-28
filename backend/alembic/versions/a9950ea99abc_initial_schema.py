@@ -32,7 +32,6 @@ def upgrade() -> None:
         sa.Column("latitude", sa.Float, nullable=True),
         sa.Column("longitude", sa.Float, nullable=True),
         sa.Column("square_feet", sa.Float, nullable=True),
-        sa.Column("status", sa.String(30), nullable=False, server_default="draft"),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
     )

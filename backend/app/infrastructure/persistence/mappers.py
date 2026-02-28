@@ -10,7 +10,6 @@ from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
-    DealStatus,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -47,7 +46,6 @@ def deal_to_entity(model: DealModel) -> Deal:
         latitude=model.latitude,
         longitude=model.longitude,
         square_feet=model.square_feet,
-        status=DealStatus(model.status),
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -64,7 +62,6 @@ def deal_to_model(entity: Deal) -> DealModel:
         latitude=entity.latitude,
         longitude=entity.longitude,
         square_feet=entity.square_feet,
-        status=entity.status.value,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
     )

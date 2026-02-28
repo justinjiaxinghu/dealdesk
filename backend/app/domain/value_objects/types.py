@@ -72,7 +72,6 @@ class QuickExtractResult:
 @dataclass
 class DealFilters:
     property_type: str | None = None
-    status: str | None = None
     city: str | None = None
 
 

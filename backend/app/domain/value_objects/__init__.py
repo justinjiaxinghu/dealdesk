@@ -1,6 +1,5 @@
 # backend/app/domain/value_objects/__init__.py
 from app.domain.value_objects.enums import (
-    DealStatus,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -24,7 +23,6 @@ from app.domain.value_objects.types import (
 
 __all__ = [
     "PropertyType",
-    "DealStatus",
     "ProcessingStatus",
     "SourceType",
     "DocumentType",

@@ -51,7 +51,6 @@ class OpenpyxlExcelExporter(ExcelExporter):
             ("Square Feet", deal.square_feet),
             ("Latitude", deal.latitude),
             ("Longitude", deal.longitude),
-            ("Status", deal.status.value),
         ]
 
         for r, (field, value) in enumerate(deal_rows, start=1):

@@ -7,7 +7,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.domain.value_objects.enums import (
-    DealStatus,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -41,7 +40,6 @@ class UpdateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
-    status: DealStatus | None = None
 
 
 class DealResponse(BaseModel):
@@ -56,7 +54,6 @@ class DealResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
-    status: DealStatus
     created_at: datetime
     updated_at: datetime
 
