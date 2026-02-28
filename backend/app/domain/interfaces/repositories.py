@@ -11,6 +11,7 @@ from app.domain.entities import (
     ExtractedField,
     MarketTable,
 )
+from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects import DealFilters, ProcessingStep
 
 
@@ -91,3 +92,11 @@ class ExportRepository(ABC):
 
     @abstractmethod
     async def get_by_deal_id(self, deal_id: UUID) -> list[Export]: ...
+
+
+class FieldValidationRepository(ABC):
+    @abstractmethod
+    async def bulk_upsert(self, validations: list[FieldValidation]) -> list[FieldValidation]: ...
+
+    @abstractmethod
+    async def get_by_deal_id(self, deal_id: UUID) -> list[FieldValidation]: ...
