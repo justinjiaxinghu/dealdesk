@@ -22,9 +22,10 @@ router = APIRouter(tags=["validation"])
 async def validate_deal(
     deal_id: UUID,
     service: Annotated[ValidationService, Depends(get_validation_service)],
+    phase: str | None = None,
 ) -> list[FieldValidationResponse]:
     try:
-        validations = await service.validate_fields(deal_id)
+        validations = await service.validate_fields(deal_id, phase=phase)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

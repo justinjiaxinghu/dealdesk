@@ -249,6 +249,9 @@ class OpenAILLMProvider(LLMProvider):
         deal: Deal,
         fields: list[ExtractedField],
         benchmarks: list[Assumption],
+        *,
+        phase: str | None = None,
+        prior_quick_results: list[dict] | None = None,
     ) -> list[FieldValidationResult]:
         fields_text = "\n".join(
             f"  - {f.field_key}: {f.value_number} {f.unit or ''}"
@@ -282,43 +285,86 @@ class OpenAILLMProvider(LLMProvider):
             }
         ]
 
-        # --- Phase 1: Quick surface search ---
-        quick_system = (
-            "You are a commercial real estate analyst doing a quick validation of an Offering Memorandum. "
-            "Do 1-2 fast web searches to spot-check the key financial metrics. "
-            "Only validate financial/operational metrics (rent, vacancy, cap rate, expenses, etc.). "
-            "Skip descriptive fields like address, square footage, or property name."
-        )
-        quick_user = (
-            f"Property: {property_desc}\n"
-            f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
-            f"OM Extracted Fields:\n{fields_text}\n\n"
-            f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
-            "Do a quick market check with 1-2 web searches. Then return a JSON object with key "
-            "'validations' containing an array. Each object must have:\n"
-            '  "field_key": string, "om_value": number, "market_value": number or null,\n'
-            '  "status": "within_range"|"above_market"|"below_market"|"suspicious"|"insufficient_data",\n'
-            '  "explanation": string (cite sources with [Title](URL)),\n'
-            '  "sources": [{"url": string, "title": string, "snippet": string}],\n'
-            '  "confidence": number 0-1\n'
-        )
+        def _safe_float(val: object, default: float = 0.5) -> float:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return default
 
-        quick_messages: list[dict] = [
-            {"role": "system", "content": quick_system},
-            {"role": "user", "content": quick_user},
-        ]
+        def _build_results(
+            validations_raw: list[dict], search_steps: list[dict]
+        ) -> list[FieldValidationResult]:
+            return [
+                FieldValidationResult(
+                    field_key=v["field_key"],
+                    om_value=_safe_float(v.get("om_value"), 0.0) if v.get("om_value") is not None else None,
+                    market_value=_safe_float(v.get("market_value"), 0.0) if v.get("market_value") is not None else None,
+                    status=v["status"],
+                    explanation=v.get("explanation", ""),
+                    sources=[
+                        ValidationSource(
+                            url=s.get("url", ""),
+                            title=s.get("title", ""),
+                            snippet=s.get("snippet", ""),
+                        )
+                        for s in v.get("sources", [])
+                    ],
+                    confidence=_safe_float(v.get("confidence", 0.5)),
+                    search_steps=search_steps,
+                )
+                for v in validations_raw
+            ]
 
-        quick_content, quick_steps = await self._run_search_phase(
-            quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
-        )
+        all_search_steps: list[dict] = []
+        quick_validations: list[dict] = []
 
-        try:
-            quick_data = json.loads(quick_content)
-        except json.JSONDecodeError:
-            quick_data = {}
-        quick_validations = quick_data.get("validations", [])
+        # --- Phase 1: Quick surface search (runs when phase is None or "quick") ---
+        if phase is None or phase == "quick":
+            quick_system = (
+                "You are a commercial real estate analyst doing a quick validation of an Offering Memorandum. "
+                "Do 1-2 fast web searches to spot-check the key financial metrics. "
+                "Only validate financial/operational metrics (rent, vacancy, cap rate, expenses, etc.). "
+                "Skip descriptive fields like address, square footage, or property name."
+            )
+            quick_user = (
+                f"Property: {property_desc}\n"
+                f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
+                f"OM Extracted Fields:\n{fields_text}\n\n"
+                f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
+                "Do a quick market check with 1-2 web searches. Then return a JSON object with key "
+                "'validations' containing an array. Each object must have:\n"
+                '  "field_key": string, "om_value": number, "market_value": number or null,\n'
+                '  "status": "within_range"|"above_market"|"below_market"|"suspicious"|"insufficient_data",\n'
+                '  "explanation": string (cite sources with [Title](URL)),\n'
+                '  "sources": [{"url": string, "title": string, "snippet": string}],\n'
+                '  "confidence": number 0-1\n'
+            )
 
-        # --- Phase 2: Deep research ---
+            quick_messages: list[dict] = [
+                {"role": "system", "content": quick_system},
+                {"role": "user", "content": quick_user},
+            ]
+
+            quick_content, quick_steps = await self._run_search_phase(
+                quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
+            )
+            all_search_steps.extend(quick_steps)
+
+            try:
+                quick_data = json.loads(quick_content)
+            except json.JSONDecodeError:
+                quick_data = {}
+            quick_validations = quick_data.get("validations", [])
+
+            # Quick-only: return results immediately
+            if phase == "quick":
+                return _build_results(quick_validations, all_search_steps)
+
+        # --- Phase 2: Deep research (runs when phase is None or "deep") ---
+        # Use prior_quick_results if provided (split-call mode), else use just-computed results
+        if phase == "deep" and prior_quick_results is not None:
+            quick_validations = prior_quick_results
+
         quick_summary = json.dumps(quick_validations, indent=2)
 
         deep_system = (
@@ -348,6 +394,7 @@ class OpenAILLMProvider(LLMProvider):
         deep_content, deep_steps = await self._run_search_phase(
             deep_messages, tools, "deep", max_rounds=10, search_depth="advanced", max_results=5
         )
+        all_search_steps.extend(deep_steps)
 
         try:
             deep_data = json.loads(deep_content)
@@ -355,31 +402,4 @@ class OpenAILLMProvider(LLMProvider):
             deep_data = {}
         validations_raw = deep_data.get("validations", [])
 
-        all_search_steps = quick_steps + deep_steps
-
-        def _safe_float(val: object, default: float = 0.5) -> float:
-            try:
-                return float(val)
-            except (TypeError, ValueError):
-                return default
-
-        return [
-            FieldValidationResult(
-                field_key=v["field_key"],
-                om_value=_safe_float(v.get("om_value"), 0.0) if v.get("om_value") is not None else None,
-                market_value=_safe_float(v.get("market_value"), 0.0) if v.get("market_value") is not None else None,
-                status=v["status"],
-                explanation=v.get("explanation", ""),
-                sources=[
-                    ValidationSource(
-                        url=s.get("url", ""),
-                        title=s.get("title", ""),
-                        snippet=s.get("snippet", ""),
-                    )
-                    for s in v.get("sources", [])
-                ],
-                confidence=_safe_float(v.get("confidence", 0.5)),
-                search_steps=all_search_steps,
-            )
-            for v in validations_raw
-        ]
+        return _build_results(validations_raw, all_search_steps)

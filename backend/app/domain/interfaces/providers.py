@@ -48,6 +48,9 @@ class LLMProvider(ABC):
         deal: Deal,
         fields: list[ExtractedField],
         benchmarks: list[Assumption],
+        *,
+        phase: str | None = None,
+        prior_quick_results: list[dict] | None = None,
     ) -> list[FieldValidationResult]: ...
 
 

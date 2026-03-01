@@ -31,7 +31,9 @@ class ValidationService:
         self._extracted_field_repo = extracted_field_repo
         self._llm_provider = llm_provider
 
-    async def validate_fields(self, deal_id: UUID) -> list[FieldValidation]:
+    async def validate_fields(
+        self, deal_id: UUID, *, phase: str | None = None
+    ) -> list[FieldValidation]:
         # Fetch deal
         deal = await self._deal_repo.get_by_id(deal_id)
         if deal is None:
@@ -52,9 +54,33 @@ class ValidationService:
         if sets:
             benchmarks = await self._assumption_repo.get_by_set_id(sets[0].id)
 
+        # For deep phase, load existing quick-phase validations as context
+        prior_quick_results: list[dict] | None = None
+        existing_search_steps: list[dict] = []
+        if phase == "deep":
+            existing = await self._field_validation_repo.get_by_deal_id(deal_id)
+            if existing:
+                prior_quick_results = [
+                    {
+                        "field_key": v.field_key,
+                        "om_value": v.om_value,
+                        "market_value": v.market_value,
+                        "status": v.status.value,
+                        "explanation": v.explanation,
+                        "sources": v.sources,
+                        "confidence": v.confidence,
+                    }
+                    for v in existing
+                ]
+                existing_search_steps = existing[0].search_steps if existing else []
+
         # Call LLM for validation
         results = await self._llm_provider.validate_om_fields(
-            deal, numeric_fields, benchmarks
+            deal,
+            numeric_fields,
+            benchmarks,
+            phase=phase,
+            prior_quick_results=prior_quick_results,
         )
 
         # Convert to entities and persist
@@ -71,7 +97,11 @@ class ValidationService:
                     for s in r.sources
                 ],
                 confidence=r.confidence,
-                search_steps=r.search_steps,
+                search_steps=(
+                    existing_search_steps + r.search_steps
+                    if phase == "deep" and existing_search_steps
+                    else r.search_steps
+                ),
             )
             for r in results
         ]

@@ -22,6 +22,7 @@ interface DealProgressBarProps {
   hasAssumptions: boolean;
   hasValidations: boolean;
   activeStep?: StageKey | null;
+  activeDetail?: string | null;
 }
 
 function getActiveStage(props: DealProgressBarProps): number {
@@ -76,13 +77,13 @@ function CheckIcon() {
 
 export function DealProgressBar(props: DealProgressBarProps) {
   const activeStage = getActiveStage(props);
-  const { activeStep } = props;
+  const { activeStep, activeDetail } = props;
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-3">
       {/* Step circles + connectors */}
       <div className="flex items-center w-full">
-        {STAGES.map((stage, index) => {
+        {STAGES.map((stage, index: number) => {
           const isCompleted = index < activeStage;
           const isCurrent = index === activeStage;
           const isRunning = activeStep === stage.key && !isCompleted;
@@ -140,6 +141,16 @@ export function DealProgressBar(props: DealProgressBarProps) {
           );
         })}
       </div>
+
+      {/* Detail banner */}
+      {activeStep && activeDetail && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+          <Spinner />
+          <span className="text-sm font-medium text-blue-800">
+            {activeDetail}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
