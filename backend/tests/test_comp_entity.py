@@ -73,3 +73,27 @@ def test_comp_repository_is_abstract():
 def test_comps_provider_is_abstract():
     import inspect
     assert inspect.isabstract(CompsProvider)
+
+
+def test_comp_mapper_roundtrip():
+    from datetime import datetime
+    from app.infrastructure.persistence.mappers import comp_to_model, comp_to_entity
+    from app.domain.value_objects.enums import CompSource, PropertyType
+    from uuid import uuid4
+
+    comp = Comp(
+        deal_id=uuid4(),
+        address="123 Main St",
+        city="Austin",
+        state="TX",
+        property_type=PropertyType.MULTIFAMILY,
+        source=CompSource.RENTCAST,
+        cap_rate=0.062,
+        fetched_at=datetime.utcnow(),
+    )
+    model = comp_to_model(comp)
+    restored = comp_to_entity(model)
+    assert restored.address == comp.address
+    assert restored.cap_rate == comp.cap_rate
+    assert restored.source == CompSource.RENTCAST
+    assert restored.property_type == PropertyType.MULTIFAMILY
