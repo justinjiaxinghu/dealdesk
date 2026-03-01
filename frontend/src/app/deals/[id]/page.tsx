@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
 import { ValidationTable } from "@/components/validation/validation-table";
 import { assumptionService } from "@/services/assumption.service";
+import { compsService } from "@/services/comps.service";
 import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
 import { validationService } from "@/services/validation.service";
@@ -35,6 +36,7 @@ export default function DealWorkspacePage({
     assumptionSets,
     assumptions,
     validations,
+    comps,
     loading,
     refresh,
   } = useDeal(id);
@@ -42,7 +44,7 @@ export default function DealWorkspacePage({
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<
-    "extract" | "assumptions" | "validate" | null
+    "extract" | "assumptions" | "validate" | "comps" | null
   >(null);
   const [pipelineDetail, setPipelineDetail] = useState<string | null>(null);
   const pipelineRanRef = useRef(false);
@@ -58,12 +60,13 @@ export default function DealWorkspacePage({
     const allDocsComplete =
       documents.length > 0 &&
       documents.every((d) => d.processing_status === "complete");
-    if (allDocsComplete && assumptions.length > 0 && validations.length > 0) return;
+    if (allDocsComplete && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
 
     pipelineRanRef.current = true;
     let cancelled = false;
 
     async function runPipeline() {
+      console.log("[pipeline] starting for deal", id);
       try {
         // Step 1: Wait for documents to appear + extraction to complete
         setPipelineStep("extract");
@@ -73,6 +76,7 @@ export default function DealWorkspacePage({
           await new Promise((r) => setTimeout(r, 2000));
           if (cancelled) return;
           const docs = await documentService.list(id);
+          console.log("[pipeline] step 1 poll — docs:", docs.map(d => ({ id: d.id, status: d.processing_status })));
           if (docs.length === 0) continue;
           setPipelineDetail("Extracting text and tables from PDF...");
           extractionDone = docs.every(
@@ -87,17 +91,20 @@ export default function DealWorkspacePage({
         // Step 2: Generate benchmarks if none exist yet
         const freshSets = await assumptionService.listSets(id);
         const freshSetId = freshSets.length > 0 ? freshSets[0].id : null;
+        console.log("[pipeline] step 2 — assumption sets:", freshSets.length, "setId:", freshSetId);
 
         let freshAssumptions: typeof assumptions = [];
         if (freshSetId) {
           freshAssumptions =
             await assumptionService.listAssumptions(freshSetId);
         }
+        console.log("[pipeline] step 2 — existing assumptions:", freshAssumptions.length);
 
         if (freshAssumptions.length === 0) {
           if (cancelled) return;
           setPipelineStep("assumptions");
           setPipelineDetail("Generating AI market benchmarks...");
+          console.log("[pipeline] step 2 — calling generateBenchmarks");
           await assumptionService.generateBenchmarks(id);
           if (cancelled) return;
           await refresh();
@@ -105,24 +112,41 @@ export default function DealWorkspacePage({
 
         // Step 3: Validate OM fields (two-phase: quick then deep)
         const freshValidations = await validationService.list(id);
+        console.log("[pipeline] step 3 — existing validations:", freshValidations.length);
         if (freshValidations.length === 0) {
           if (cancelled) return;
           setPipelineStep("validate");
 
           // Phase 1: Quick search
           setPipelineDetail("Phase 1: Quick search — spot-checking key metrics...");
+          console.log("[pipeline] step 3 — calling validate(quick)");
           await validationService.validate(id, "quick");
           if (cancelled) return;
           await refresh();
 
           // Phase 2: Deep search
           setPipelineDetail("Phase 2: Deep search — researching comps and market reports...");
+          console.log("[pipeline] step 3 — calling validate(deep)");
           await validationService.validate(id, "deep");
           if (cancelled) return;
           await refresh();
         }
+
+        // Step 4: Find comparable properties
+        const freshComps = await compsService.list(id);
+        if (freshComps.length === 0) {
+          if (cancelled) return;
+          setPipelineStep("comps");
+          setPipelineDetail("Searching for comparable properties...");
+          await compsService.search(id);
+          if (cancelled) return;
+          await refresh();
+        }
+
+        console.log("[pipeline] complete");
       } catch (err) {
         console.error("Auto-pipeline error:", err);
+        console.error("Auto-pipeline error detail:", err instanceof Error ? { message: err.message, stack: err.stack } : err);
         setActionError(
           err instanceof Error ? err.message : "Pipeline step failed",
         );
@@ -212,6 +236,7 @@ export default function DealWorkspacePage({
         hasFields={fields.length > 0}
         hasAssumptions={assumptions.length > 0}
         hasValidations={validations.length > 0}
+        hasComps={comps.length > 0}
         activeStep={pipelineStep}
         activeDetail={pipelineDetail}
       />

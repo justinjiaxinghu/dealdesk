@@ -142,3 +142,28 @@ export interface FieldValidation {
   search_steps: SearchStep[];
   created_at: string;
 }
+
+export interface Comp {
+  id: string;
+  deal_id: string;
+  address: string;
+  city: string;
+  state: string;
+  property_type: string;
+  source: string; // "rentcast" | "tavily"
+  source_url: string | null;
+  year_built: number | null;
+  unit_count: number | null;
+  square_feet: number | null;
+  sale_price: number | null;
+  price_per_unit: number | null;
+  price_per_sqft: number | null;
+  cap_rate: number | null;
+  rent_per_unit: number | null;
+  occupancy_rate: number | null;
+  noi: number | null;
+  expense_ratio: number | null;
+  opex_per_unit: number | null;
+  fetched_at: string;
+  created_at: string;
+}
