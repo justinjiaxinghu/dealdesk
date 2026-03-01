@@ -13,21 +13,92 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const GAP_METRICS: Array<{
+type MetricDef = {
   key: keyof Comp;
   label: string;
   format: (v: number) => string;
   higherIsBetter: boolean | null;
+  // Direct field key match
   extractedFieldKey?: string;
-}> = [
-  { key: "cap_rate", label: "Cap Rate", format: (v) => `${(v * 100).toFixed(2)}%`, higherIsBetter: true, extractedFieldKey: "cap_rate" },
-  { key: "price_per_unit", label: "Price / Unit", format: (v) => `$${Math.round(v).toLocaleString()}`, higherIsBetter: false },
-  { key: "price_per_sqft", label: "Price / Sqft", format: (v) => `$${v.toFixed(0)}`, higherIsBetter: false },
-  { key: "rent_per_unit", label: "Rent / Unit", format: (v) => `$${Math.round(v).toLocaleString()}`, higherIsBetter: true, extractedFieldKey: "rent_per_unit" },
-  { key: "occupancy_rate", label: "Occupancy", format: (v) => `${(v * 100).toFixed(0)}%`, higherIsBetter: true, extractedFieldKey: "occupancy_rate" },
-  { key: "expense_ratio", label: "Expense Ratio", format: (v) => `${(v * 100).toFixed(0)}%`, higherIsBetter: false, extractedFieldKey: "expense_ratio" },
-  { key: "year_built", label: "Year Built", format: (v) => v.toString(), higherIsBetter: null },
-  { key: "unit_count", label: "Units", format: (v) => v.toString(), higherIsBetter: null },
+  // Derived from multiple fields: return value or null
+  derive?: (fields: ExtractedField[]) => number | null;
+};
+
+const GAP_METRICS: MetricDef[] = [
+  {
+    key: "cap_rate",
+    label: "Cap Rate",
+    format: (v) => `${(v * 100).toFixed(2)}%`,
+    higherIsBetter: true,
+    derive: (fields) => {
+      const noi = fields.find((f) => f.field_key === "current_noi")?.value_number ?? null;
+      const price = fields.find((f) => f.field_key === "offering_price")?.value_number ?? null;
+      return noi !== null && price !== null && price > 0 ? noi / price : null;
+    },
+  },
+  {
+    key: "price_per_unit",
+    label: "Price / Unit",
+    format: (v) => `$${Math.round(v).toLocaleString()}`,
+    higherIsBetter: false,
+    derive: (fields) => {
+      const price = fields.find((f) => f.field_key === "offering_price")?.value_number ?? null;
+      const units = fields.find((f) => f.field_key === "number_of_units")?.value_number ?? null;
+      return price !== null && units !== null && units > 0 ? price / units : null;
+    },
+  },
+  {
+    key: "price_per_sqft",
+    label: "Price / Sqft",
+    format: (v) => `$${v.toFixed(0)}`,
+    higherIsBetter: false,
+    derive: (fields) => {
+      const price = fields.find((f) => f.field_key === "offering_price")?.value_number ?? null;
+      const sqft = fields.find((f) => f.field_key === "total_square_feet" || f.field_key === "total_size")?.value_number ?? null;
+      return price !== null && sqft !== null && sqft > 0 ? price / sqft : null;
+    },
+  },
+  {
+    key: "rent_per_unit",
+    label: "Rent / Unit",
+    format: (v) => `$${Math.round(v).toLocaleString()}`,
+    higherIsBetter: true,
+    extractedFieldKey: "rent_per_unit",
+  },
+  {
+    key: "occupancy_rate",
+    label: "Occupancy",
+    format: (v) => `${(v * 100).toFixed(0)}%`,
+    higherIsBetter: true,
+    derive: (fields) => {
+      const vacancy = fields.find((f) => f.field_key === "vacancy_rate")?.value_number ?? null;
+      if (vacancy === null) return null;
+      // vacancy_rate stored as percentage (e.g. 3 = 3%), convert to occupancy decimal
+      const vacancyDecimal = vacancy > 1 ? vacancy / 100 : vacancy;
+      return 1 - vacancyDecimal;
+    },
+  },
+  {
+    key: "expense_ratio",
+    label: "Expense Ratio",
+    format: (v) => `${(v * 100).toFixed(0)}%`,
+    higherIsBetter: false,
+    extractedFieldKey: "expense_ratio",
+  },
+  {
+    key: "year_built",
+    label: "Year Built",
+    format: (v) => v.toString(),
+    higherIsBetter: null,
+    extractedFieldKey: "year_built",
+  },
+  {
+    key: "unit_count",
+    label: "Units",
+    format: (v) => v.toString(),
+    higherIsBetter: null,
+    extractedFieldKey: "number_of_units",
+  },
 ];
 
 function avg(values: number[]): number | null {
@@ -36,7 +107,8 @@ function avg(values: number[]): number | null {
   return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
-function getSubjectValue(metric: (typeof GAP_METRICS)[0], fields: ExtractedField[]): number | null {
+function getSubjectValue(metric: MetricDef, fields: ExtractedField[]): number | null {
+  if (metric.derive) return metric.derive(fields);
   if (!metric.extractedFieldKey) return null;
   const field = fields.find((f) => f.field_key === metric.extractedFieldKey);
   return field?.value_number ?? null;
