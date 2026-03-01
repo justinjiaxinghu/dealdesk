@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 from app.domain.entities.assumption import Assumption, AssumptionSet
+from app.domain.entities.comp import Comp
 from app.domain.entities.deal import Deal
 from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
+    CompSource,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -21,6 +23,7 @@ from app.domain.value_objects.types import ProcessingStep
 from app.infrastructure.persistence.models import (
     AssumptionModel,
     AssumptionSetModel,
+    CompModel,
     DealModel,
     DocumentModel,
     ExportModel,
@@ -308,10 +311,6 @@ def field_validation_to_model(entity: FieldValidation) -> FieldValidationModel:
 # ---------------------------------------------------------------------------
 # Comp
 # ---------------------------------------------------------------------------
-
-from app.domain.entities.comp import Comp
-from app.domain.value_objects.enums import CompSource
-from app.infrastructure.persistence.models import CompModel
 
 
 def comp_to_entity(model: CompModel) -> Comp:
