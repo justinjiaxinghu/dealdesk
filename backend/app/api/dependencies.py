@@ -9,12 +9,16 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.infrastructure.persistence.database import get_session
 
 # ---------------------------------------------------------------------------
 # Provider singletons (stateless, created once)
 # ---------------------------------------------------------------------------
 
+from app.infrastructure.comps.combined_provider import CombinedCompsProvider
+from app.infrastructure.comps.rentcast_provider import RentcastCompsProvider
+from app.infrastructure.comps.tavily_provider import TavilyCompsProvider
 from app.infrastructure.document_processing.pdfplumber_processor import (
     PdfPlumberProcessor,
 )
@@ -26,6 +30,16 @@ _file_storage = LocalFileStorage()
 _document_processor = PdfPlumberProcessor()
 _llm_provider = OpenAILLMProvider()
 _excel_exporter = OpenpyxlExcelExporter()
+_rentcast_provider = RentcastCompsProvider(api_key=settings.rentcast_api_key)
+_tavily_comps_provider = TavilyCompsProvider(
+    tavily_api_key=settings.tavily_api_key,
+    openai_api_key=settings.openai_api_key,
+    openai_model=settings.openai_model,
+)
+_combined_comps_provider = CombinedCompsProvider(
+    rentcast=_rentcast_provider,
+    tavily=_tavily_comps_provider,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +72,7 @@ from app.infrastructure.persistence.extraction_repo import (
     SqlAlchemyExtractedFieldRepository,
     SqlAlchemyMarketTableRepository,
 )
+from app.infrastructure.persistence.comp_repo import SqlAlchemyCompRepository
 from app.infrastructure.persistence.field_validation_repo import (
     SqlAlchemyFieldValidationRepository,
 )
@@ -95,11 +110,16 @@ def get_field_validation_repo(session: DbSession) -> SqlAlchemyFieldValidationRe
     return SqlAlchemyFieldValidationRepository(session)
 
 
+def get_comp_repo(session: DbSession) -> SqlAlchemyCompRepository:
+    return SqlAlchemyCompRepository(session)
+
+
 # ---------------------------------------------------------------------------
 # Service factories (compose repos + providers)
 # ---------------------------------------------------------------------------
 
 from app.services.benchmark_service import BenchmarkService
+from app.services.comps_service import CompsService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
@@ -198,4 +218,19 @@ def get_validation_service(
         field_validation_repo=field_validation_repo,
         extracted_field_repo=extracted_field_repo,
         llm_provider=_llm_provider,
+    )
+
+
+def get_comps_service(
+    deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
+    extracted_field_repo: Annotated[
+        SqlAlchemyExtractedFieldRepository, Depends(get_extracted_field_repo)
+    ],
+    comp_repo: Annotated[SqlAlchemyCompRepository, Depends(get_comp_repo)],
+) -> CompsService:
+    return CompsService(
+        deal_repo=deal_repo,
+        extracted_field_repo=extracted_field_repo,
+        comp_repo=comp_repo,
+        comps_provider=_combined_comps_provider,
     )
