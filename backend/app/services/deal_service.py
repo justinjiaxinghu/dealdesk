@@ -57,12 +57,10 @@ class DealService:
     async def list_deals(
         self,
         property_type: str | None = None,
-        status: str | None = None,
         city: str | None = None,
     ) -> list[Deal]:
         filters = DealFilters(
             property_type=property_type,
-            status=status,
             city=city,
         )
         return await self._deal_repo.list(filters)

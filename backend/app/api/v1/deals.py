@@ -37,12 +37,10 @@ async def create_deal(
 async def list_deals(
     service: Annotated[DealService, Depends(get_deal_service)],
     property_type: str | None = None,
-    status_filter: str | None = None,
     city: str | None = None,
 ) -> list[DealResponse]:
     deals = await service.list_deals(
         property_type=property_type,
-        status=status_filter,
         city=city,
     )
     return [DealResponse.model_validate(d) for d in deals]
