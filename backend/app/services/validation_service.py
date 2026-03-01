@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from app.domain.entities.field_validation import FieldValidation
@@ -12,6 +13,8 @@ from app.domain.interfaces.repositories import (
     FieldValidationRepository,
 )
 from app.domain.value_objects.enums import ValidationStatus
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationService:
@@ -83,6 +86,11 @@ class ValidationService:
             prior_quick_results=prior_quick_results,
         )
 
+        logger.info(
+            "LLM validate_om_fields(phase=%s) returned %d results",
+            phase, len(results),
+        )
+
         # Convert to entities and persist
         validations = [
             FieldValidation(
@@ -108,5 +116,9 @@ class ValidationService:
 
         if validations:
             validations = await self._field_validation_repo.bulk_upsert(validations)
+        elif phase == "deep":
+            # Deep phase returned nothing — return existing quick-phase results
+            logger.warning("Deep phase returned 0 results; keeping existing validations")
+            validations = await self._field_validation_repo.get_by_deal_id(deal_id)
 
         return validations

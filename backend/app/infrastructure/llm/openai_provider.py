@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from openai import AsyncOpenAI
 from tavily import AsyncTavilyClient
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.domain.entities.assumption import Assumption
@@ -349,12 +352,15 @@ class OpenAILLMProvider(LLMProvider):
                 quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
             )
             all_search_steps.extend(quick_steps)
+            logger.info("Quick phase raw content (first 500 chars): %s", quick_content[:500])
 
             try:
                 quick_data = json.loads(quick_content)
             except json.JSONDecodeError:
+                logger.warning("Quick phase returned unparseable JSON: %s", quick_content[:200])
                 quick_data = {}
             quick_validations = quick_data.get("validations", [])
+            logger.info("Quick phase produced %d validations", len(quick_validations))
 
             # Quick-only: return results immediately
             if phase == "quick":
@@ -395,11 +401,14 @@ class OpenAILLMProvider(LLMProvider):
             deep_messages, tools, "deep", max_rounds=10, search_depth="advanced", max_results=5
         )
         all_search_steps.extend(deep_steps)
+        logger.info("Deep phase raw content (first 500 chars): %s", deep_content[:500])
 
         try:
             deep_data = json.loads(deep_content)
         except json.JSONDecodeError:
+            logger.warning("Deep phase returned unparseable JSON: %s", deep_content[:200])
             deep_data = {}
         validations_raw = deep_data.get("validations", [])
+        logger.info("Deep phase produced %d validations", len(validations_raw))
 
         return _build_results(validations_raw, all_search_steps)
