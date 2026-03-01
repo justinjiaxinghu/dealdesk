@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 from datetime import datetime
 
@@ -78,11 +77,7 @@ class RentcastCompsProvider(CompsProvider):
                     )
                     return []
 
-                result = response.json()
-                if inspect.iscoroutine(result):
-                    data = await result
-                else:
-                    data = result
+                data = response.json()
         except Exception as exc:
             logger.warning("Rentcast request failed: %s", exc)
             return []

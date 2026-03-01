@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.domain.entities.deal import Deal
@@ -41,7 +41,7 @@ async def test_rentcast_provider_returns_comps(sample_deal):
         ]
     }
 
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = mock_response_data
 
