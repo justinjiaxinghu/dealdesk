@@ -235,9 +235,12 @@ class OpenAILLMProvider(LLMProvider):
             else:
                 break
 
-        content = response.choices[0].message.content or "{}" if response else "{}"
+        content = (response.choices[0].message.content or "{}") if response else "{}"
         if content.startswith("```"):
             content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+        content = content.strip()
+        if not content:
+            content = "{}"
 
         return content, search_steps
 
@@ -309,7 +312,10 @@ class OpenAILLMProvider(LLMProvider):
             quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
         )
 
-        quick_data = json.loads(quick_content)
+        try:
+            quick_data = json.loads(quick_content)
+        except json.JSONDecodeError:
+            quick_data = {}
         quick_validations = quick_data.get("validations", [])
 
         # --- Phase 2: Deep research ---
@@ -343,18 +349,27 @@ class OpenAILLMProvider(LLMProvider):
             deep_messages, tools, "deep", max_rounds=10, search_depth="advanced", max_results=5
         )
 
-        deep_data = json.loads(deep_content)
+        try:
+            deep_data = json.loads(deep_content)
+        except json.JSONDecodeError:
+            deep_data = {}
         validations_raw = deep_data.get("validations", [])
 
         all_search_steps = quick_steps + deep_steps
 
+        def _safe_float(val: object, default: float = 0.5) -> float:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return default
+
         return [
             FieldValidationResult(
                 field_key=v["field_key"],
-                om_value=v.get("om_value"),
-                market_value=v.get("market_value"),
+                om_value=_safe_float(v.get("om_value"), 0.0) if v.get("om_value") is not None else None,
+                market_value=_safe_float(v.get("market_value"), 0.0) if v.get("market_value") is not None else None,
                 status=v["status"],
-                explanation=v["explanation"],
+                explanation=v.get("explanation", ""),
                 sources=[
                     ValidationSource(
                         url=s.get("url", ""),
@@ -363,7 +378,7 @@ class OpenAILLMProvider(LLMProvider):
                     )
                     for s in v.get("sources", [])
                 ],
-                confidence=float(v.get("confidence", 0.5)),
+                confidence=_safe_float(v.get("confidence", 0.5)),
                 search_steps=all_search_steps,
             )
             for v in validations_raw
