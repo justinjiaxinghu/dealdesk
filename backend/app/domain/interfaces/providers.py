@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from app.domain.entities import Assumption, Deal
+from app.domain.entities.comp import Comp
 from app.domain.entities.extraction import ExtractedField
 from app.domain.value_objects import (
     BenchmarkSuggestion,
@@ -70,9 +71,6 @@ class ExcelExporter(ABC):
     async def export(
         self, deal: Deal, assumptions: list[Assumption]
     ) -> bytes: ...
-
-
-from app.domain.entities.comp import Comp
 
 
 class CompsProvider(ABC):
