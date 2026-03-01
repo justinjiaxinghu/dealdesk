@@ -47,8 +47,6 @@ class InMemoryDealRepository(DealRepository):
         if filters:
             if filters.property_type:
                 deals = [d for d in deals if d.property_type.value == filters.property_type]
-            if filters.status:
-                deals = [d for d in deals if d.status.value == filters.status]
             if filters.city:
                 deals = [d for d in deals if d.city == filters.city]
         return deals
@@ -96,8 +94,9 @@ class InMemoryDocumentRepository(DocumentRepository):
 
 
 class InMemoryExtractedFieldRepository(ExtractedFieldRepository):
-    def __init__(self) -> None:
+    def __init__(self, document_repo: InMemoryDocumentRepository | None = None) -> None:
         self._store: list[ExtractedField] = []
+        self._document_repo = document_repo
 
     async def bulk_create(self, fields: list[ExtractedField]) -> list[ExtractedField]:
         self._store.extend(fields)
@@ -105,6 +104,13 @@ class InMemoryExtractedFieldRepository(ExtractedFieldRepository):
 
     async def get_by_document_id(self, document_id: UUID) -> list[ExtractedField]:
         return [f for f in self._store if f.document_id == document_id]
+
+    async def get_by_deal_id(self, deal_id: UUID) -> list[ExtractedField]:
+        if self._document_repo is None:
+            return []
+        docs = await self._document_repo.get_by_deal_id(deal_id)
+        doc_ids = {d.id for d in docs}
+        return [f for f in self._store if f.document_id in doc_ids]
 
 
 class InMemoryMarketTableRepository(MarketTableRepository):
