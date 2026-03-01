@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
 import { ValidationTable } from "@/components/validation/validation-table";
+import { CompsTab } from "@/components/comps/comps-tab";
 import { assumptionService } from "@/services/assumption.service";
 import { compsService } from "@/services/comps.service";
 import { documentService } from "@/services/document.service";
@@ -198,6 +199,16 @@ export default function DealWorkspacePage({
     }
   }
 
+  async function handleRefetchComps() {
+    setActionError(null);
+    try {
+      await compsService.search(id);
+      await refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to fetch comps");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -248,6 +259,7 @@ export default function DealWorkspacePage({
           <TabsTrigger value="extraction">Extraction</TabsTrigger>
           <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
+          <TabsTrigger value="comps">Comps</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -337,6 +349,15 @@ export default function DealWorkspacePage({
         {/* Validation Tab */}
         <TabsContent value="validation" className="pt-4">
           <ValidationTable validations={validations} />
+        </TabsContent>
+
+        {/* Comps Tab */}
+        <TabsContent value="comps" className="pt-4">
+          <CompsTab
+            comps={comps}
+            fields={fields}
+            onRefetch={handleRefetchComps}
+          />
         </TabsContent>
       </Tabs>
     </div>
