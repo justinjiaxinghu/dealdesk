@@ -58,15 +58,16 @@ function gapLabel(
   subject: number | null,
   compAvg: number | null,
   metric: (typeof GAP_METRICS)[0],
-): { text: string; color: string } {
-  if (subject === null || compAvg === null) return { text: "—", color: "text-muted-foreground" };
+): { text: string; color: string; status: string } {
+  if (subject === null || compAvg === null || compAvg === 0) return { text: "—", color: "text-muted-foreground", status: "—" };
   const diff = subject - compAvg;
   const pct = Math.round((diff / compAvg) * 100);
   const sign = diff >= 0 ? "+" : "";
   const text = `${sign}${pct}%`;
-  if (metric.higherIsBetter === null) return { text, color: "text-muted-foreground" };
+  if (metric.higherIsBetter === null) return { text, color: "text-muted-foreground", status: "—" };
   const favorable = (diff > 0 && metric.higherIsBetter) || (diff < 0 && !metric.higherIsBetter);
-  return { text, color: favorable ? "text-green-600 font-semibold" : "text-red-600 font-semibold" };
+  const status = diff > 0 ? "▲ Above" : diff < 0 ? "▼ Below" : "— At par";
+  return { text, color: favorable ? "text-green-600 font-semibold" : "text-red-600 font-semibold", status };
 }
 
 interface CompsTabProps {
@@ -124,6 +125,7 @@ export function CompsTab({ comps, fields, onRefetch }: CompsTabProps) {
                   <TableHead>Subject</TableHead>
                   <TableHead>Comp Avg</TableHead>
                   <TableHead>Gap</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -133,7 +135,7 @@ export function CompsTab({ comps, fields, onRefetch }: CompsTabProps) {
                     .filter((v): v is number => v !== null);
                   const compAvg = avg(compValues);
                   const subjectVal = subjectMetrics[metric.key] ?? null;
-                  const { text: gapText, color: gapColor } = gapLabel(subjectVal, compAvg, metric);
+                  const { text: gapText, color: gapColor, status } = gapLabel(subjectVal, compAvg, metric);
 
                   if (compAvg === null) return null;
 
@@ -149,6 +151,7 @@ export function CompsTab({ comps, fields, onRefetch }: CompsTabProps) {
                       </TableCell>
                       <TableCell>{metric.format(compAvg)}</TableCell>
                       <TableCell className={gapColor}>{gapText}</TableCell>
+                      <TableCell className={gapColor}>{status}</TableCell>
                     </TableRow>
                   );
                 })}

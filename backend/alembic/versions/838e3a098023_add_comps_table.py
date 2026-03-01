@@ -44,6 +44,7 @@ def upgrade() -> None:
         sa.Column('opex_per_unit', sa.Float, nullable=True),
         sa.Column('fetched_at', sa.DateTime, nullable=False),
         sa.Column('created_at', sa.DateTime, nullable=False),
+        sa.UniqueConstraint('deal_id', 'address', name='uq_comps_deal_address'),
     )
 
 

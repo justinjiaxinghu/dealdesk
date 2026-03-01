@@ -99,7 +99,7 @@ export function CompCard({ comp, subjectMetrics, ranges }: CompCardProps) {
             variant={comp.source === "rentcast" ? "default" : "secondary"}
             className="text-xs shrink-0"
           >
-            {comp.source === "rentcast" ? "Rentcast" : "Zillow"}
+            {comp.source === "rentcast" ? "Rentcast" : "Tavily"}
           </Badge>
         </div>
         <div className="flex gap-3 text-xs text-muted-foreground mt-1">

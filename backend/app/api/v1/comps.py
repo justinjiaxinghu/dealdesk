@@ -6,9 +6,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.dependencies import get_comp_repo, get_comps_service
+from app.api.dependencies import get_comps_service
 from app.api.schemas import CompResponse
-from app.infrastructure.persistence.comp_repo import SqlAlchemyCompRepository
 from app.services.comps_service import CompsService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ async def search_comps(
         comps = await service.search_comps(deal_id)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
     return [CompResponse.model_validate(c) for c in comps]
@@ -39,7 +38,7 @@ async def search_comps(
 )
 async def list_comps(
     deal_id: UUID,
-    repo: Annotated[SqlAlchemyCompRepository, Depends(get_comp_repo)],
+    service: Annotated[CompsService, Depends(get_comps_service)],
 ) -> list[CompResponse]:
-    comps = await repo.get_by_deal_id(deal_id)
+    comps = await service.list_comps(deal_id)
     return [CompResponse.model_validate(c) for c in comps]

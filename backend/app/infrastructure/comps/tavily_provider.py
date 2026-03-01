@@ -41,7 +41,7 @@ class TavilyCompsProvider(CompsProvider):
 
         queries = [
             f"{property_type} sold {location} 2023 2024 comparable properties",
-            f"multifamily apartment comps {location} cap rate price per unit site:zillow.com OR site:loopnet.com",
+            f"{property_type} comps {location} cap rate price per unit site:zillow.com OR site:loopnet.com",
         ]
 
         raw_results: list[dict] = []

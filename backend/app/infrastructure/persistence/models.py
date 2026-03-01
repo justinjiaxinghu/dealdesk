@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import CHAR, JSON
@@ -291,6 +292,7 @@ class FieldValidationModel(Base):
 
 class CompModel(Base):
     __tablename__ = "comps"
+    __table_args__ = (UniqueConstraint("deal_id", "address", name="uq_comps_deal_address"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUIDType(), primary_key=True, default=uuid.uuid4
