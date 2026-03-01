@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from openai import AsyncOpenAI
 from tavily import AsyncTavilyClient
@@ -193,11 +194,13 @@ class OpenAILLMProvider(LLMProvider):
             self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
 
         response = None
-        for _ in range(max_rounds):
+        for round_idx in range(max_rounds):
+            # Use tools for search rounds; on the final response, force JSON output
             response = await self._client.chat.completions.create(
                 model=self._model,
                 messages=messages,
                 tools=tools,
+                response_format={"type": "json_object"},
                 temperature=0.2,
             )
             choice = response.choices[0]
@@ -239,13 +242,53 @@ class OpenAILLMProvider(LLMProvider):
                 break
 
         content = (response.choices[0].message.content or "{}") if response else "{}"
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1].rsplit("```", 1)[0]
-        content = content.strip()
-        if not content:
-            content = "{}"
+        content = self._extract_json(content)
 
         return content, search_steps
+
+    @staticmethod
+    def _extract_json(text: str) -> str:
+        """Extract JSON from LLM response, handling code blocks and surrounding text."""
+        text = text.strip()
+        if not text:
+            return "{}"
+
+        # Try direct parse first
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+
+        # Extract from markdown code blocks (```json ... ``` or ``` ... ```)
+        match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+        if match:
+            extracted = match.group(1).strip()
+            try:
+                json.loads(extracted)
+                return extracted
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find a JSON object anywhere in the text
+        brace_start = text.find("{")
+        if brace_start >= 0:
+            # Find the matching closing brace
+            depth = 0
+            for i in range(brace_start, len(text)):
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[brace_start : i + 1]
+                        try:
+                            json.loads(candidate)
+                            return candidate
+                        except json.JSONDecodeError:
+                            break
+
+        return "{}"
 
     async def validate_om_fields(
         self,
