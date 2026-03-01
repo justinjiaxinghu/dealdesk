@@ -17,7 +17,7 @@ from app.infrastructure.persistence.mappers import (
     market_table_to_entity,
     market_table_to_model,
 )
-from app.infrastructure.persistence.models import ExtractedFieldModel, MarketTableModel
+from app.infrastructure.persistence.models import DocumentModel, ExtractedFieldModel, MarketTableModel
 
 
 class SqlAlchemyExtractedFieldRepository(ExtractedFieldRepository):
@@ -39,6 +39,15 @@ class SqlAlchemyExtractedFieldRepository(ExtractedFieldRepository):
     ) -> list[ExtractedField]:
         stmt = select(ExtractedFieldModel).where(
             ExtractedFieldModel.document_id == document_id
+        )
+        result = await self._session.execute(stmt)
+        return [extracted_field_to_entity(m) for m in result.scalars().all()]
+
+    async def get_by_deal_id(self, deal_id: UUID) -> list[ExtractedField]:
+        stmt = (
+            select(ExtractedFieldModel)
+            .join(DocumentModel, ExtractedFieldModel.document_id == DocumentModel.id)
+            .where(DocumentModel.deal_id == deal_id)
         )
         result = await self._session.execute(stmt)
         return [extracted_field_to_entity(m) for m in result.scalars().all()]

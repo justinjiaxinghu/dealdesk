@@ -11,12 +11,6 @@ class PropertyType(StrEnum):
     OTHER = "other"
 
 
-class DealStatus(StrEnum):
-    DRAFT = "draft"
-    PROCESSING = "processing"
-    READY = "ready"
-    EXPORTED = "exported"
-
 
 class ProcessingStatus(StrEnum):
     PENDING = "pending"
@@ -44,3 +38,11 @@ class DocumentType(StrEnum):
 
 class ExportType(StrEnum):
     XLSX = "xlsx"
+
+
+class ValidationStatus(StrEnum):
+    WITHIN_RANGE = "within_range"
+    ABOVE_MARKET = "above_market"
+    BELOW_MARKET = "below_market"
+    SUSPICIOUS = "suspicious"
+    INSUFFICIENT_DATA = "insufficient_data"

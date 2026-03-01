@@ -7,7 +7,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.domain.value_objects.enums import (
-    DealStatus,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -41,7 +40,6 @@ class UpdateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
-    status: DealStatus | None = None
 
 
 class DealResponse(BaseModel):
@@ -56,7 +54,6 @@ class DealResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
-    status: DealStatus
     created_at: datetime
     updated_at: datetime
 
@@ -208,3 +205,42 @@ class BenchmarkResponse(BaseModel):
     range_max: float
     source: str
     confidence: float
+
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+
+class ValidationSourceResponse(BaseModel):
+    url: str
+    title: str
+    snippet: str
+
+
+class SearchStepResultResponse(BaseModel):
+    url: str
+    title: str
+    snippet: str
+
+
+class SearchStepResponse(BaseModel):
+    phase: str
+    query: str
+    results: list[SearchStepResultResponse] = []
+
+
+class FieldValidationResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: UUID
+    deal_id: UUID
+    field_key: str
+    om_value: float | None = None
+    market_value: float | None = None
+    status: str
+    explanation: str
+    sources: list[ValidationSourceResponse] = []
+    confidence: float
+    search_steps: list[SearchStepResponse] = []
+    created_at: datetime

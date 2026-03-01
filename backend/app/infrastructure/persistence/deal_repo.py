@@ -36,8 +36,6 @@ class SqlAlchemyDealRepository(DealRepository):
         if filters:
             if filters.property_type:
                 stmt = stmt.where(DealModel.property_type == filters.property_type)
-            if filters.status:
-                stmt = stmt.where(DealModel.status == filters.status)
             if filters.city:
                 stmt = stmt.where(DealModel.city == filters.city)
         stmt = stmt.order_by(DealModel.created_at.desc())
@@ -56,7 +54,6 @@ class SqlAlchemyDealRepository(DealRepository):
         model.latitude = deal.latitude
         model.longitude = deal.longitude
         model.square_feet = deal.square_feet
-        model.status = deal.status.value
         model.updated_at = datetime.utcnow()
         await self._session.flush()
         await self._session.refresh(model)

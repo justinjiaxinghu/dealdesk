@@ -32,7 +32,6 @@ def upgrade() -> None:
         sa.Column("latitude", sa.Float, nullable=True),
         sa.Column("longitude", sa.Float, nullable=True),
         sa.Column("square_feet", sa.Float, nullable=True),
-        sa.Column("status", sa.String(30), nullable=False, server_default="draft"),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
     )
@@ -177,8 +176,35 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime, nullable=False),
     )
 
+    # --- field_validations ---
+    op.create_table(
+        "field_validations",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column(
+            "deal_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("deals.id"),
+            nullable=False,
+        ),
+        sa.Column("field_key", sa.String(255), nullable=False),
+        sa.Column("om_value", sa.Float, nullable=True),
+        sa.Column("market_value", sa.Float, nullable=True),
+        sa.Column(
+            "status",
+            sa.String(30),
+            nullable=False,
+            server_default="insufficient_data",
+        ),
+        sa.Column("explanation", sa.Text, nullable=False, server_default=""),
+        sa.Column("sources", sa.JSON, nullable=True),
+        sa.Column("search_steps", sa.JSON, nullable=True),
+        sa.Column("confidence", sa.Float, nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("field_validations")
     op.drop_table("exports")
     op.drop_table("model_results")
     op.drop_table("assumptions")

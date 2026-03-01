@@ -3,15 +3,18 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from app.domain.entities import Assumption, Deal
+from app.domain.entities.extraction import ExtractedField
 from app.domain.value_objects import (
     BenchmarkSuggestion,
     ExtractedTable,
+    FieldValidationResult,
     Location,
     NormalizedField,
     PageText,
     PropertyType,
     QuickExtractResult,
     RawField,
+    ValidationSource,
 )
 
 
@@ -38,6 +41,17 @@ class LLMProvider(ABC):
     async def quick_extract_deal_info(
         self, pages: list[PageText]
     ) -> QuickExtractResult: ...
+
+    @abstractmethod
+    async def validate_om_fields(
+        self,
+        deal: Deal,
+        fields: list[ExtractedField],
+        benchmarks: list[Assumption],
+        *,
+        phase: str | None = None,
+        prior_quick_results: list[dict] | None = None,
+    ) -> list[FieldValidationResult]: ...
 
 
 class FileStorage(ABC):

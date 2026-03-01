@@ -2,19 +2,29 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 
 from openai import AsyncOpenAI
+from tavily import AsyncTavilyClient
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
+from app.domain.entities.assumption import Assumption
+from app.domain.entities.deal import Deal
+from app.domain.entities.extraction import ExtractedField
 from app.domain.interfaces.providers import LLMProvider
 from app.domain.value_objects.enums import PropertyType
 from app.domain.value_objects.types import (
     BenchmarkSuggestion,
+    FieldValidationResult,
     Location,
     NormalizedField,
     PageText,
     QuickExtractResult,
     RawField,
+    ValidationSource,
 )
 
 
@@ -24,6 +34,7 @@ class OpenAILLMProvider(LLMProvider):
     def __init__(self, client: AsyncOpenAI | None = None) -> None:
         self._client = client or AsyncOpenAI(api_key=settings.openai_api_key)
         self._model = settings.openai_model
+        self._tavily: AsyncTavilyClient | None = None
 
     async def generate_benchmarks(
         self, location: Location, property_type: PropertyType
@@ -162,3 +173,285 @@ class OpenAILLMProvider(LLMProvider):
             property_type=pt,
             square_feet=float(sq_ft) if sq_ft is not None else None,
         )
+
+    async def _run_search_phase(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        phase: str,
+        max_rounds: int,
+        search_depth: str,
+        max_results: int,
+    ) -> tuple[str, list[dict]]:
+        """Run one phase of the validation search loop.
+
+        Returns (final_content, search_steps) where search_steps is a list of
+        {"phase": str, "query": str, "results": [{"url", "title", "snippet"}]}.
+        """
+        search_steps: list[dict] = []
+
+        if self._tavily is None:
+            self._tavily = AsyncTavilyClient(api_key=settings.tavily_api_key)
+
+        response = None
+        for round_idx in range(max_rounds):
+            # Use tools for search rounds; on the final response, force JSON output
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                tools=tools,
+                response_format={"type": "json_object"},
+                temperature=0.2,
+            )
+            choice = response.choices[0]
+
+            if choice.finish_reason == "tool_calls":
+                messages.append(choice.message.model_dump())
+
+                for tool_call in choice.message.tool_calls:
+                    args = json.loads(tool_call.function.arguments)
+                    query = args.get("query", "")
+
+                    search_result = await self._tavily.search(
+                        query=query,
+                        search_depth=search_depth,
+                        max_results=max_results,
+                    )
+
+                    step_results = [
+                        {
+                            "url": r.get("url", ""),
+                            "title": r.get("title", ""),
+                            "snippet": r.get("content", "")[:500],
+                        }
+                        for r in search_result.get("results", [])
+                    ]
+
+                    search_steps.append({
+                        "phase": phase,
+                        "query": query,
+                        "results": step_results,
+                    })
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(step_results),
+                    })
+            else:
+                break
+
+        content = (response.choices[0].message.content or "{}") if response else "{}"
+        content = self._extract_json(content)
+
+        return content, search_steps
+
+    @staticmethod
+    def _extract_json(text: str) -> str:
+        """Extract JSON from LLM response, handling code blocks and surrounding text."""
+        text = text.strip()
+        if not text:
+            return "{}"
+
+        # Try direct parse first
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+
+        # Extract from markdown code blocks (```json ... ``` or ``` ... ```)
+        match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+        if match:
+            extracted = match.group(1).strip()
+            try:
+                json.loads(extracted)
+                return extracted
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find a JSON object anywhere in the text
+        brace_start = text.find("{")
+        if brace_start >= 0:
+            # Find the matching closing brace
+            depth = 0
+            for i in range(brace_start, len(text)):
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[brace_start : i + 1]
+                        try:
+                            json.loads(candidate)
+                            return candidate
+                        except json.JSONDecodeError:
+                            break
+
+        return "{}"
+
+    async def validate_om_fields(
+        self,
+        deal: Deal,
+        fields: list[ExtractedField],
+        benchmarks: list[Assumption],
+        *,
+        phase: str | None = None,
+        prior_quick_results: list[dict] | None = None,
+    ) -> list[FieldValidationResult]:
+        fields_text = "\n".join(
+            f"  - {f.field_key}: {f.value_number} {f.unit or ''}"
+            for f in fields
+            if f.value_number is not None
+        )
+        benchmarks_text = "\n".join(
+            f"  - {a.key}: {a.value_number} {a.unit or ''} (range: {a.range_min}-{a.range_max})"
+            for a in benchmarks
+        )
+
+        property_desc = f"{deal.property_type.value} at {deal.address}, {deal.city}, {deal.state}"
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": "Search the web for current market data, comps, and reports.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query for market data",
+                            }
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        ]
+
+        def _safe_float(val: object, default: float = 0.5) -> float:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return default
+
+        def _build_results(
+            validations_raw: list[dict], search_steps: list[dict]
+        ) -> list[FieldValidationResult]:
+            return [
+                FieldValidationResult(
+                    field_key=v["field_key"],
+                    om_value=_safe_float(v.get("om_value"), 0.0) if v.get("om_value") is not None else None,
+                    market_value=_safe_float(v.get("market_value"), 0.0) if v.get("market_value") is not None else None,
+                    status=v["status"],
+                    explanation=v.get("explanation", ""),
+                    sources=[
+                        ValidationSource(
+                            url=s.get("url", ""),
+                            title=s.get("title", ""),
+                            snippet=s.get("snippet", ""),
+                        )
+                        for s in v.get("sources", [])
+                    ],
+                    confidence=_safe_float(v.get("confidence", 0.5)),
+                    search_steps=search_steps,
+                )
+                for v in validations_raw
+            ]
+
+        all_search_steps: list[dict] = []
+        quick_validations: list[dict] = []
+
+        # --- Phase 1: Quick surface search (runs when phase is None or "quick") ---
+        if phase is None or phase == "quick":
+            quick_system = (
+                "You are a commercial real estate analyst doing a quick validation of an Offering Memorandum. "
+                "Do 1-2 fast web searches to spot-check the key financial metrics. "
+                "Only validate financial/operational metrics (rent, vacancy, cap rate, expenses, etc.). "
+                "Skip descriptive fields like address, square footage, or property name."
+            )
+            quick_user = (
+                f"Property: {property_desc}\n"
+                f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
+                f"OM Extracted Fields:\n{fields_text}\n\n"
+                f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
+                "Do a quick market check with 1-2 web searches. Then return a JSON object with key "
+                "'validations' containing an array. Each object must have:\n"
+                '  "field_key": string, "om_value": number, "market_value": number or null,\n'
+                '  "status": "within_range"|"above_market"|"below_market"|"suspicious"|"insufficient_data",\n'
+                '  "explanation": string (cite sources with [Title](URL)),\n'
+                '  "sources": [{"url": string, "title": string, "snippet": string}],\n'
+                '  "confidence": number 0-1\n'
+            )
+
+            quick_messages: list[dict] = [
+                {"role": "system", "content": quick_system},
+                {"role": "user", "content": quick_user},
+            ]
+
+            quick_content, quick_steps = await self._run_search_phase(
+                quick_messages, tools, "quick", max_rounds=3, search_depth="basic", max_results=3
+            )
+            all_search_steps.extend(quick_steps)
+            logger.info("Quick phase raw content (first 500 chars): %s", quick_content[:500])
+
+            try:
+                quick_data = json.loads(quick_content)
+            except json.JSONDecodeError:
+                logger.warning("Quick phase returned unparseable JSON: %s", quick_content[:200])
+                quick_data = {}
+            quick_validations = quick_data.get("validations", [])
+            logger.info("Quick phase produced %d validations", len(quick_validations))
+
+            # Quick-only: return results immediately
+            if phase == "quick":
+                return _build_results(quick_validations, all_search_steps)
+
+        # --- Phase 2: Deep research (runs when phase is None or "deep") ---
+        # Use prior_quick_results if provided (split-call mode), else use just-computed results
+        if phase == "deep" and prior_quick_results is not None:
+            quick_validations = prior_quick_results
+
+        quick_summary = json.dumps(quick_validations, indent=2)
+
+        deep_system = (
+            "You are a commercial real estate analyst doing a thorough validation of an Offering Memorandum. "
+            "You have already done a quick check (results below). Now do deeper research: "
+            "search for more specific data, comparable transactions, market reports, and submarket analysis. "
+            "Confirm or revise your initial assessment. Cite all sources.\n\n"
+            "Only validate financial/operational metrics. Skip descriptive fields."
+        )
+        deep_user = (
+            f"Property: {property_desc}\n"
+            f"Square Feet: {deal.square_feet or 'unknown'}\n\n"
+            f"OM Extracted Fields:\n{fields_text}\n\n"
+            f"AI Market Benchmarks:\n{benchmarks_text}\n\n"
+            f"Quick Assessment Results:\n{quick_summary}\n\n"
+            "Now do deeper research with more targeted searches. Return the same JSON format "
+            "with updated/revised validations. Include ALL sources (from quick and deep searches).\n"
+            "Format: JSON with key 'validations', each with: field_key, om_value, market_value, "
+            "status, explanation (cite with [Title](URL)), sources [{url, title, snippet}], confidence.\n"
+        )
+
+        deep_messages: list[dict] = [
+            {"role": "system", "content": deep_system},
+            {"role": "user", "content": deep_user},
+        ]
+
+        deep_content, deep_steps = await self._run_search_phase(
+            deep_messages, tools, "deep", max_rounds=10, search_depth="advanced", max_results=5
+        )
+        all_search_steps.extend(deep_steps)
+        logger.info("Deep phase raw content (first 500 chars): %s", deep_content[:500])
+
+        try:
+            deep_data = json.loads(deep_content)
+        except json.JSONDecodeError:
+            logger.warning("Deep phase returned unparseable JSON: %s", deep_content[:200])
+            deep_data = {}
+        validations_raw = deep_data.get("validations", [])
+        logger.info("Deep phase produced %d validations", len(validations_raw))
+
+        return _build_results(validations_raw, all_search_steps)

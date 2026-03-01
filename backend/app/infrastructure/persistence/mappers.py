@@ -8,13 +8,14 @@ from app.domain.entities.deal import Deal
 from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
+from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
-    DealStatus,
     DocumentType,
     ExportType,
     ProcessingStatus,
     PropertyType,
     SourceType,
+    ValidationStatus,
 )
 from app.domain.value_objects.types import ProcessingStep
 from app.infrastructure.persistence.models import (
@@ -24,6 +25,7 @@ from app.infrastructure.persistence.models import (
     DocumentModel,
     ExportModel,
     ExtractedFieldModel,
+    FieldValidationModel,
     MarketTableModel,
 )
 
@@ -44,7 +46,6 @@ def deal_to_entity(model: DealModel) -> Deal:
         latitude=model.latitude,
         longitude=model.longitude,
         square_feet=model.square_feet,
-        status=DealStatus(model.status),
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -61,7 +62,6 @@ def deal_to_model(entity: Deal) -> DealModel:
         latitude=entity.latitude,
         longitude=entity.longitude,
         square_feet=entity.square_feet,
-        status=entity.status.value,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
     )
@@ -264,5 +264,42 @@ def export_to_model(entity: Export) -> ExportModel:
         set_id=entity.set_id,
         file_path=entity.file_path,
         export_type=entity.export_type.value,
+        created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Field Validation
+# ---------------------------------------------------------------------------
+
+
+def field_validation_to_entity(model: FieldValidationModel) -> FieldValidation:
+    return FieldValidation(
+        id=model.id,
+        deal_id=model.deal_id,
+        field_key=model.field_key,
+        om_value=model.om_value,
+        market_value=model.market_value,
+        status=ValidationStatus(model.status),
+        explanation=model.explanation,
+        sources=model.sources or [],
+        confidence=model.confidence,
+        search_steps=model.search_steps or [],
+        created_at=model.created_at,
+    )
+
+
+def field_validation_to_model(entity: FieldValidation) -> FieldValidationModel:
+    return FieldValidationModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        field_key=entity.field_key,
+        om_value=entity.om_value,
+        market_value=entity.market_value,
+        status=entity.status.value,
+        explanation=entity.explanation,
+        sources=entity.sources,
+        search_steps=entity.search_steps,
+        confidence=entity.confidence,
         created_at=entity.created_at,
     )

@@ -122,10 +122,11 @@ async def _llm_judge(context: str, data_to_evaluate: str, criteria: str) -> dict
 @pytest.fixture
 def repos():
     """Create a fresh set of in-memory repositories."""
+    document_repo = InMemoryDocumentRepository()
     return {
         "deal": InMemoryDealRepository(),
-        "document": InMemoryDocumentRepository(),
-        "extracted_field": InMemoryExtractedFieldRepository(),
+        "document": document_repo,
+        "extracted_field": InMemoryExtractedFieldRepository(document_repo=document_repo),
         "market_table": InMemoryMarketTableRepository(),
         "assumption_set": InMemoryAssumptionSetRepository(),
         "assumption": InMemoryAssumptionRepository(),

@@ -55,7 +55,6 @@ class DealModel(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     square_feet: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )
@@ -69,6 +68,9 @@ class DealModel(Base):
         "AssumptionSetModel", back_populates="deal", lazy="selectin"
     )
     exports = relationship("ExportModel", back_populates="deal", lazy="selectin")
+    field_validations = relationship(
+        "FieldValidationModel", back_populates="deal", lazy="selectin"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -249,3 +251,33 @@ class ExportModel(Base):
     # Relationships
     deal = relationship("DealModel", back_populates="exports")
     assumption_set = relationship("AssumptionSetModel")
+
+
+# ---------------------------------------------------------------------------
+# Field Validations
+# ---------------------------------------------------------------------------
+
+
+class FieldValidationModel(Base):
+    __tablename__ = "field_validations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType(), primary_key=True, default=uuid.uuid4
+    )
+    deal_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType(), ForeignKey("deals.id"), nullable=False
+    )
+    field_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    om_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    market_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="insufficient_data")
+    explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    search_steps: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    # Relationships
+    deal = relationship("DealModel", back_populates="field_validations")

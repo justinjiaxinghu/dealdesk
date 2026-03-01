@@ -8,7 +8,6 @@ export interface Deal {
   latitude: number | null;
   longitude: number | null;
   square_feet: number | null;
-  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -110,4 +109,36 @@ export interface Benchmark {
   range_max: number;
   source: string;
   confidence: number;
+}
+
+export interface ValidationSource {
+  url: string;
+  title: string;
+  snippet: string;
+}
+
+export interface SearchStepResult {
+  url: string;
+  title: string;
+  snippet: string;
+}
+
+export interface SearchStep {
+  phase: string;
+  query: string;
+  results: SearchStepResult[];
+}
+
+export interface FieldValidation {
+  id: string;
+  deal_id: string;
+  field_key: string;
+  om_value: number | null;
+  market_value: number | null;
+  status: string;
+  explanation: string;
+  sources: ValidationSource[];
+  confidence: number;
+  search_steps: SearchStep[];
+  created_at: string;
 }
