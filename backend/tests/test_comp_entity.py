@@ -59,3 +59,17 @@ def test_comp_required_fields():
     import pytest
     with pytest.raises(TypeError):
         Comp()  # missing required fields
+
+
+from app.domain.interfaces.repositories import CompRepository
+from app.domain.interfaces.providers import CompsProvider
+
+
+def test_comp_repository_is_abstract():
+    import inspect
+    assert inspect.isabstract(CompRepository)
+
+
+def test_comps_provider_is_abstract():
+    import inspect
+    assert inspect.isabstract(CompsProvider)

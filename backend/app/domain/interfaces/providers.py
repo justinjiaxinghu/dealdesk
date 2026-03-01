@@ -70,3 +70,15 @@ class ExcelExporter(ABC):
     async def export(
         self, deal: Deal, assumptions: list[Assumption]
     ) -> bytes: ...
+
+
+from app.domain.entities.comp import Comp
+
+
+class CompsProvider(ABC):
+    @abstractmethod
+    async def search_comps(
+        self,
+        deal: Deal,
+        extracted_fields: list[ExtractedField],
+    ) -> list[Comp]: ...

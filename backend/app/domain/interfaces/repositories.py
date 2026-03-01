@@ -103,3 +103,17 @@ class FieldValidationRepository(ABC):
 
     @abstractmethod
     async def get_by_deal_id(self, deal_id: UUID) -> list[FieldValidation]: ...
+
+
+from app.domain.entities.comp import Comp
+
+
+class CompRepository(ABC):
+    @abstractmethod
+    async def bulk_upsert(self, comps: list[Comp]) -> list[Comp]: ...
+
+    @abstractmethod
+    async def get_by_deal_id(self, deal_id: UUID) -> list[Comp]: ...
+
+    @abstractmethod
+    async def delete_by_deal_id(self, deal_id: UUID) -> None: ...
