@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from app.domain.value_objects.enums import CompSource, PropertyType
+
 
 @dataclass
 class Comp:
@@ -10,8 +12,8 @@ class Comp:
     address: str
     city: str
     state: str
-    property_type: str
-    source: str  # "rentcast" | "tavily"
+    property_type: PropertyType
+    source: CompSource
     fetched_at: datetime
     id: UUID = field(default_factory=uuid4)
     # Physical
