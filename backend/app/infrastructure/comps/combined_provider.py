@@ -10,8 +10,6 @@ from app.domain.entities.comp import Comp
 from app.domain.entities.deal import Deal
 from app.domain.entities.extraction import ExtractedField
 from app.domain.interfaces.providers import CompsProvider
-from app.infrastructure.comps.rentcast_provider import RentcastCompsProvider
-from app.infrastructure.comps.tavily_provider import TavilyCompsProvider
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +17,8 @@ logger = logging.getLogger(__name__)
 class CombinedCompsProvider(CompsProvider):
     def __init__(
         self,
-        rentcast: RentcastCompsProvider,
-        tavily: TavilyCompsProvider,
+        rentcast: CompsProvider,
+        tavily: CompsProvider,
     ) -> None:
         self._rentcast = rentcast
         self._tavily = tavily
