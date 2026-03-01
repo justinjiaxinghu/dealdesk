@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import CHAR, JSON
@@ -71,6 +72,7 @@ class DealModel(Base):
     field_validations = relationship(
         "FieldValidationModel", back_populates="deal", lazy="selectin"
     )
+    comps = relationship("CompModel", back_populates="deal", lazy="selectin")
 
 
 # ---------------------------------------------------------------------------
@@ -281,3 +283,50 @@ class FieldValidationModel(Base):
 
     # Relationships
     deal = relationship("DealModel", back_populates="field_validations")
+
+
+# ---------------------------------------------------------------------------
+# Comps
+# ---------------------------------------------------------------------------
+
+
+class CompModel(Base):
+    __tablename__ = "comps"
+    __table_args__ = (UniqueConstraint("deal_id", "address", name="uq_comps_deal_address"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType(), primary_key=True, default=uuid.uuid4
+    )
+    deal_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType(), ForeignKey("deals.id"), nullable=False
+    )
+    address: Mapped[str] = mapped_column(String(500), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(50), nullable=False)
+    property_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    source: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Physical
+    year_built: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unit_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    square_feet: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Pricing
+    sale_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_per_unit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_per_sqft: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cap_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Income
+    rent_per_unit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    occupancy_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    noi: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Expenses
+    expense_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    opex_per_unit: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    # Relationships
+    deal = relationship("DealModel", back_populates="comps")
