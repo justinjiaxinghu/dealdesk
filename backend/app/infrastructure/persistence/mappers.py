@@ -11,6 +11,7 @@ from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
+    AssumptionGroup,
     CompSource,
     DocumentType,
     ExportType,
@@ -224,6 +225,9 @@ def assumption_to_entity(model: AssumptionModel) -> Assumption:
         source_type=SourceType(model.source_type),
         source_ref=model.source_ref,
         notes=model.notes,
+        group=AssumptionGroup(model.group) if model.group else None,
+        forecast_method=model.forecast_method,
+        forecast_params=model.forecast_params,
         updated_at=model.updated_at,
     )
 
@@ -240,6 +244,9 @@ def assumption_to_model(entity: Assumption) -> AssumptionModel:
         source_type=entity.source_type.value,
         source_ref=entity.source_ref,
         notes=entity.notes,
+        group=entity.group.value if entity.group else None,
+        forecast_method=entity.forecast_method,
+        forecast_params=entity.forecast_params,
         updated_at=entity.updated_at,
     )
 

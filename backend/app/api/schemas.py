@@ -145,6 +145,9 @@ class AssumptionResponse(BaseModel):
     source_type: SourceType
     source_ref: str | None = None
     notes: str | None = None
+    group: str | None = None
+    forecast_method: str | None = None
+    forecast_params: dict | None = None
     updated_at: datetime
 
 
@@ -157,6 +160,9 @@ class UpdateAssumptionRequest(BaseModel):
     source_type: SourceType = SourceType.MANUAL
     source_ref: str | None = None
     notes: str | None = None
+    group: str | None = None
+    forecast_method: str | None = None
+    forecast_params: dict | None = None
 
 
 class BulkUpdateAssumptionsRequest(BaseModel):

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from app.domain.value_objects.enums import SourceType
+from app.domain.value_objects.enums import AssumptionGroup, SourceType
 
 
 @dataclass
@@ -27,4 +27,7 @@ class Assumption:
     source_type: SourceType = SourceType.MANUAL
     source_ref: str | None = None
     notes: str | None = None
+    group: AssumptionGroup | None = None
+    forecast_method: str | None = None
+    forecast_params: dict | None = None
     updated_at: datetime = field(default_factory=datetime.utcnow)

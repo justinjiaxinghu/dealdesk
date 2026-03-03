@@ -217,6 +217,9 @@ class AssumptionModel(Base):
     )
     source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    group: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    forecast_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    forecast_params: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
