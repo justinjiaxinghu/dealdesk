@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 
-import { AssumptionEditor } from "@/components/assumptions/assumption-editor";
+import { AssumptionPanel } from "@/components/assumptions/assumption-panel";
 import { DealProgressBar } from "@/components/deals/deal-progress-bar";
 import { ProcessingTracker } from "@/components/documents/processing-tracker";
 import { ExtractedFieldsTable } from "@/components/extraction/extracted-fields-table";
@@ -331,7 +331,7 @@ export default function DealWorkspacePage({
             </Button>
           </div>
 
-          <AssumptionEditor assumptions={assumptions} />
+          <AssumptionPanel assumptions={assumptions} />
         </TabsContent>
 
         {/* Validation Tab */}
