@@ -9,6 +9,7 @@ from app.api.v1.comps import router as comps_router
 from app.api.v1.deals import router as deals_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.exports import router as exports_router
+from app.api.v1.historical_financials import router as historical_financials_router
 from app.api.v1.quick_extract import router as quick_extract_router
 from app.api.v1.validation import router as validation_router
 from app.config import settings
@@ -48,6 +49,7 @@ app.include_router(exports_router, prefix="/v1")
 app.include_router(quick_extract_router, prefix="/v1")
 app.include_router(validation_router, prefix="/v1")
 app.include_router(comps_router, prefix="/v1")
+app.include_router(historical_financials_router, prefix="/v1")
 
 
 @app.get("/health")

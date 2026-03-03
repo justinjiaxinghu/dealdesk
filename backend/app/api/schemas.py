@@ -253,6 +253,23 @@ class FieldValidationResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Historical Financials
+# ---------------------------------------------------------------------------
+
+
+class HistoricalFinancialResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID
+    period_label: str
+    metric_key: str
+    value: float
+    unit: str | None
+    source: str
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
 # Comps
 # ---------------------------------------------------------------------------
 
