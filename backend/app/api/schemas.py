@@ -244,3 +244,35 @@ class FieldValidationResponse(BaseModel):
     confidence: float
     search_steps: list[SearchStepResponse] = []
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Comps
+# ---------------------------------------------------------------------------
+
+
+class CompResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: UUID
+    deal_id: UUID
+    address: str
+    city: str
+    state: str
+    property_type: str
+    source: str
+    source_url: str | None = None
+    year_built: int | None = None
+    unit_count: int | None = None
+    square_feet: float | None = None
+    sale_price: float | None = None
+    price_per_unit: float | None = None
+    price_per_sqft: float | None = None
+    cap_rate: float | None = None
+    rent_per_unit: float | None = None
+    occupancy_rate: float | None = None
+    noi: float | None = None
+    expense_ratio: float | None = None
+    opex_per_unit: float | None = None
+    fetched_at: datetime
+    created_at: datetime

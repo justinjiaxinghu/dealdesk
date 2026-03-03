@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     file_storage_path: Path = Path("./storage")
     openai_api_key: str = ""
     tavily_api_key: str = ""
+    rentcast_api_key: str = ""
     openai_model: str = "gpt-4o"
     cors_origins: list[str] = ["http://localhost:3000"]
 

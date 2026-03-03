@@ -46,3 +46,8 @@ class ValidationStatus(StrEnum):
     BELOW_MARKET = "below_market"
     SUSPICIOUS = "suspicious"
     INSUFFICIENT_DATA = "insufficient_data"
+
+
+class CompSource(StrEnum):
+    RENTCAST = "rentcast"
+    TAVILY = "tavily"

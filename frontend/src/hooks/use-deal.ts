@@ -5,12 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Assumption,
   AssumptionSet,
+  Comp,
   Deal,
   Document,
   ExtractedField,
   FieldValidation,
 } from "@/interfaces/api";
 import { assumptionService } from "@/services/assumption.service";
+import { compsService } from "@/services/comps.service";
 import { dealService } from "@/services/deal.service";
 import { documentService } from "@/services/document.service";
 import { validationService } from "@/services/validation.service";
@@ -53,6 +55,7 @@ export function useDeal(id: string) {
   const [assumptionSets, setAssumptionSets] = useState<AssumptionSet[]>([]);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [validations, setValidations] = useState<FieldValidation[]>([]);
+  const [comps, setComps] = useState<Comp[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
 
@@ -62,15 +65,19 @@ export function useDeal(id: string) {
       setLoading(true);
     }
     try {
-      const [dealData, docs, sets] = await Promise.all([
+      const [dealData, docs, sets, vals, compsData] = await Promise.all([
         dealService.get(id),
         documentService.list(id),
         assumptionService.listSets(id),
+        validationService.list(id),
+        compsService.list(id),
       ]);
 
       setDeal(dealData);
       setDocuments(docs);
       setAssumptionSets(sets);
+      setValidations(vals);
+      setComps(compsData);
 
       // Fetch extracted fields for the first document (if any)
       if (docs.length > 0) {
@@ -85,10 +92,6 @@ export function useDeal(id: string) {
         const a = await assumptionService.listAssumptions(firstSet.id);
         setAssumptions(a);
       }
-
-      // Fetch field validations
-      const vals = await validationService.list(id);
-      setValidations(vals);
     } catch (err) {
       console.error("Failed to fetch deal data", err);
     } finally {
@@ -108,6 +111,7 @@ export function useDeal(id: string) {
     assumptionSets,
     assumptions,
     validations,
+    comps,
     loading,
     refresh,
   };

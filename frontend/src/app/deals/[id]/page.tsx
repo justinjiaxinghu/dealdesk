@@ -17,7 +17,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
 import { ValidationTable } from "@/components/validation/validation-table";
+import { CompsTab } from "@/components/comps/comps-tab";
 import { assumptionService } from "@/services/assumption.service";
+import { compsService } from "@/services/comps.service";
 import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
 import { validationService } from "@/services/validation.service";
@@ -35,6 +37,7 @@ export default function DealWorkspacePage({
     assumptionSets,
     assumptions,
     validations,
+    comps,
     loading,
     refresh,
   } = useDeal(id);
@@ -42,7 +45,7 @@ export default function DealWorkspacePage({
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<
-    "extract" | "assumptions" | "validate" | null
+    "extract" | "assumptions" | "validate" | "comps" | null
   >(null);
   const [pipelineDetail, setPipelineDetail] = useState<string | null>(null);
   const pipelineRanRef = useRef(false);
@@ -58,7 +61,7 @@ export default function DealWorkspacePage({
     const allDocsComplete =
       documents.length > 0 &&
       documents.every((d) => d.processing_status === "complete");
-    if (allDocsComplete && assumptions.length > 0 && validations.length > 0) return;
+    if (allDocsComplete && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
 
     pipelineRanRef.current = true;
     let cancelled = false;
@@ -121,8 +124,18 @@ export default function DealWorkspacePage({
           if (cancelled) return;
           await refresh();
         }
+
+        // Step 4: Find comparable properties
+        const freshComps = await compsService.list(id);
+        if (freshComps.length === 0) {
+          if (cancelled) return;
+          setPipelineStep("comps");
+          setPipelineDetail("Searching for comparable properties...");
+          await compsService.search(id);
+          if (cancelled) return;
+          await refresh();
+        }
       } catch (err) {
-        console.error("Auto-pipeline error:", err);
         setActionError(
           err instanceof Error ? err.message : "Pipeline step failed",
         );
@@ -174,6 +187,16 @@ export default function DealWorkspacePage({
     }
   }
 
+  async function handleRefetchComps() {
+    setActionError(null);
+    try {
+      await compsService.search(id);
+      await refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to fetch comps");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -212,6 +235,7 @@ export default function DealWorkspacePage({
         hasFields={fields.length > 0}
         hasAssumptions={assumptions.length > 0}
         hasValidations={validations.length > 0}
+        hasComps={comps.length > 0}
         activeStep={pipelineStep}
         activeDetail={pipelineDetail}
       />
@@ -223,6 +247,7 @@ export default function DealWorkspacePage({
           <TabsTrigger value="extraction">Extraction</TabsTrigger>
           <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
+          <TabsTrigger value="comps">Comps</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -312,6 +337,15 @@ export default function DealWorkspacePage({
         {/* Validation Tab */}
         <TabsContent value="validation" className="pt-4">
           <ValidationTable validations={validations} />
+        </TabsContent>
+
+        {/* Comps Tab */}
+        <TabsContent value="comps" className="pt-4">
+          <CompsTab
+            comps={comps}
+            fields={fields}
+            onRefetch={handleRefetchComps}
+          />
         </TabsContent>
       </Tabs>
     </div>

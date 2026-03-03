@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 from app.domain.entities.assumption import Assumption, AssumptionSet
+from app.domain.entities.comp import Comp
 from app.domain.entities.deal import Deal
 from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
+    CompSource,
     DocumentType,
     ExportType,
     ProcessingStatus,
@@ -21,6 +23,7 @@ from app.domain.value_objects.types import ProcessingStep
 from app.infrastructure.persistence.models import (
     AssumptionModel,
     AssumptionSetModel,
+    CompModel,
     DealModel,
     DocumentModel,
     ExportModel,
@@ -301,5 +304,64 @@ def field_validation_to_model(entity: FieldValidation) -> FieldValidationModel:
         sources=entity.sources,
         search_steps=entity.search_steps,
         confidence=entity.confidence,
+        created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Comp
+# ---------------------------------------------------------------------------
+
+
+def comp_to_entity(model: CompModel) -> Comp:
+    return Comp(
+        id=model.id,
+        deal_id=model.deal_id,
+        address=model.address,
+        city=model.city,
+        state=model.state,
+        property_type=PropertyType(model.property_type),
+        source=CompSource(model.source),
+        source_url=model.source_url,
+        year_built=model.year_built,
+        unit_count=model.unit_count,
+        square_feet=model.square_feet,
+        sale_price=model.sale_price,
+        price_per_unit=model.price_per_unit,
+        price_per_sqft=model.price_per_sqft,
+        cap_rate=model.cap_rate,
+        rent_per_unit=model.rent_per_unit,
+        occupancy_rate=model.occupancy_rate,
+        noi=model.noi,
+        expense_ratio=model.expense_ratio,
+        opex_per_unit=model.opex_per_unit,
+        fetched_at=model.fetched_at,
+        created_at=model.created_at,
+    )
+
+
+def comp_to_model(entity: Comp) -> CompModel:
+    return CompModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        address=entity.address,
+        city=entity.city,
+        state=entity.state,
+        property_type=entity.property_type.value,
+        source=entity.source.value,
+        source_url=entity.source_url,
+        year_built=entity.year_built,
+        unit_count=entity.unit_count,
+        square_feet=entity.square_feet,
+        sale_price=entity.sale_price,
+        price_per_unit=entity.price_per_unit,
+        price_per_sqft=entity.price_per_sqft,
+        cap_rate=entity.cap_rate,
+        rent_per_unit=entity.rent_per_unit,
+        occupancy_rate=entity.occupancy_rate,
+        noi=entity.noi,
+        expense_ratio=entity.expense_ratio,
+        opex_per_unit=entity.opex_per_unit,
+        fetched_at=entity.fetched_at,
         created_at=entity.created_at,
     )
