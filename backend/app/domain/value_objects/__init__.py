@@ -13,6 +13,7 @@ from app.domain.value_objects.types import (
     DealFilters,
     ExtractedTable,
     FieldValidationResult,
+    HistoricalFinancialResult,
     Location,
     NormalizedField,
     PageText,
@@ -41,4 +42,5 @@ __all__ = [
     "DealFilters",
     "ValidationSource",
     "FieldValidationResult",
+    "HistoricalFinancialResult",
 ]
