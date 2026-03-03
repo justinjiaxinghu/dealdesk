@@ -40,7 +40,7 @@ class FinancialModelService:
             closing_costs=v("closing_costs"),
             acquisition_fee=v("acquisition_fee"),
             base_gross_revenue=v("base_gross_revenue"),
-            base_occupancy_rate=v("base_occupancy_rate", 1.0),
+            base_occupancy_rate=v("base_occupancy_rate", 0.93),
             base_expense_ratio=v("base_expense_ratio", 0.40),
             base_capex_per_unit=v("base_capex_per_unit"),
             revenue_forecast_method=rev_method,

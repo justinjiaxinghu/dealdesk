@@ -139,9 +139,24 @@ def compute_projection(params: ProjectionParams) -> ProjectionResult:
         ds = _debt_service(t)
         cash_flows.append(noi - ds)
 
-    # Terminal cash flow added to final period
-    final_noi = period_nois[-1] if period_nois else 0.0
-    exit_value = final_noi / params.exit_cap_rate if params.exit_cap_rate > 0 else 0.0
+    # Terminal cash flow: exit value uses forward NOI (period n+1)
+    forward_rev = _apply_forecast(
+        params.base_gross_revenue,
+        params.periods + 1,
+        params.revenue_forecast_method,
+        params.revenue_forecast_params,
+        params.periods,
+    )
+    forward_egi = forward_rev * params.base_occupancy_rate
+    forward_exp_ratio = _apply_forecast(
+        params.base_expense_ratio,
+        params.periods + 1,
+        params.expense_forecast_method,
+        params.expense_forecast_params,
+        params.periods,
+    )
+    forward_noi = forward_egi - forward_egi * forward_exp_ratio - params.base_capex_per_unit
+    exit_value = forward_noi / params.exit_cap_rate if params.exit_cap_rate > 0 else 0.0
     remaining_bal = _remaining_balance(params.periods)
     cash_flows[-1] += exit_value - remaining_bal
 
