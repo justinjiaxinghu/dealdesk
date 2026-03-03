@@ -73,6 +73,7 @@ class DealModel(Base):
         "FieldValidationModel", back_populates="deal", lazy="selectin"
     )
     comps = relationship("CompModel", back_populates="deal", lazy="selectin")
+    historical_financials = relationship("HistoricalFinancialModel", back_populates="deal", lazy="selectin")
 
 
 # ---------------------------------------------------------------------------
@@ -333,3 +334,25 @@ class CompModel(Base):
 
     # Relationships
     deal = relationship("DealModel", back_populates="comps")
+
+
+# ---------------------------------------------------------------------------
+# Historical Financials
+# ---------------------------------------------------------------------------
+
+class HistoricalFinancialModel(Base):
+    __tablename__ = "historical_financials"
+    __table_args__ = (
+        UniqueConstraint("deal_id", "period_label", "metric_key", name="uq_hf_deal_period_metric"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid.uuid4)
+    deal_id: Mapped[uuid.UUID] = mapped_column(UUIDType(), ForeignKey("deals.id"), nullable=False)
+    period_label: Mapped[str] = mapped_column(String(50), nullable=False)
+    metric_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="extracted")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    deal = relationship("DealModel", back_populates="historical_financials")

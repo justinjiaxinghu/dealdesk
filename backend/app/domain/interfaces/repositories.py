@@ -13,6 +13,7 @@ from app.domain.entities import (
 )
 from app.domain.entities.comp import Comp
 from app.domain.entities.field_validation import FieldValidation
+from app.domain.entities.historical_financial import HistoricalFinancial
 from app.domain.value_objects import DealFilters, ProcessingStep
 
 
@@ -115,3 +116,13 @@ class CompRepository(ABC):
 
     @abstractmethod
     async def delete_by_deal_id(self, deal_id: UUID) -> None: ...
+
+
+class HistoricalFinancialRepository(ABC):
+    @abstractmethod
+    async def bulk_upsert(
+        self, items: list[HistoricalFinancial]
+    ) -> list[HistoricalFinancial]: ...
+
+    @abstractmethod
+    async def get_by_deal_id(self, deal_id: UUID) -> list[HistoricalFinancial]: ...
