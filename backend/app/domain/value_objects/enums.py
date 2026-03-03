@@ -51,3 +51,11 @@ class ValidationStatus(StrEnum):
 class CompSource(StrEnum):
     RENTCAST = "rentcast"
     TAVILY = "tavily"
+
+
+class AssumptionGroup(StrEnum):
+    MODEL_STRUCTURE = "model_structure"
+    TRANSACTION = "transaction"
+    OPERATING = "operating"
+    FINANCING = "financing"
+    RETURN_TARGETS = "return_targets"
