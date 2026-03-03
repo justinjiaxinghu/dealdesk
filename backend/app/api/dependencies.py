@@ -130,6 +130,7 @@ from app.services.comps_service import CompsService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
+from app.services.financial_model_service import FinancialModelService
 from app.services.historical_financial_service import HistoricalFinancialService
 from app.services.validation_service import ValidationService
 
@@ -242,6 +243,12 @@ def get_comps_service(
         comp_repo=comp_repo,
         comps_provider=_combined_comps_provider,
     )
+
+
+def get_financial_model_service(
+    assumption_repo: Annotated[SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)],
+) -> FinancialModelService:
+    return FinancialModelService(assumption_repo=assumption_repo)
 
 
 def get_historical_financial_service(

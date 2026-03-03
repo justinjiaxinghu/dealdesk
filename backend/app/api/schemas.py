@@ -270,6 +270,36 @@ class HistoricalFinancialResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Financial Model
+# ---------------------------------------------------------------------------
+
+
+class ProjectionResultResponse(BaseModel):
+    irr: float | None
+    equity_multiple: float
+    cash_on_cash_yr1: float
+    cap_rate_on_cost: float
+    cash_flows: list[float]
+
+
+class SensitivityAxisRequest(BaseModel):
+    key: str
+    values: list[float]
+
+
+class SensitivityRequest(BaseModel):
+    x_axis: SensitivityAxisRequest
+    y_axis: SensitivityAxisRequest
+    metrics: list[str] = ["irr", "equity_multiple", "cash_on_cash_yr1", "cap_rate_on_cost"]
+
+
+class SensitivityResponse(BaseModel):
+    grids: dict[str, list[list[float | None]]]
+    x_axis: SensitivityAxisRequest
+    y_axis: SensitivityAxisRequest
+
+
+# ---------------------------------------------------------------------------
 # Comps
 # ---------------------------------------------------------------------------
 
