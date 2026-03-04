@@ -471,6 +471,52 @@ class TestGoldenPipeline:
             "Judge should have listed specific issues with the bad data"
         )
 
+    async def test_dcf_compute_known_values(self, services, repos):
+        """Deterministic: OM-known assumptions produce expected DCF metrics."""
+        # Create deal (no LLM calls needed)
+        deal = await services["deal"].create_deal(
+            name="Lund Pointe Deterministic",
+            address="3300 Valentine Ln SE",
+            city="Port Orchard",
+            state="WA",
+            property_type=PropertyType.MULTIFAMILY,
+            square_feet=OM_SQUARE_FEET,
+        )
+        assumption_sets = await repos["assumption_set"].get_by_deal_id(deal.id)
+        base_set = assumption_sets[0]
+
+        # Seed assumptions from OM-known values
+        assumptions = [
+            Assumption(set_id=base_set.id, key="purchase_price",       value_number=OM_OFFERING_PRICE),
+            Assumption(set_id=base_set.id, key="base_gross_revenue",   value_number=OM_GROSS_REVENUE),
+            Assumption(set_id=base_set.id, key="base_occupancy_rate",  value_number=1.0 - OM_VACANCY_RATE),
+            Assumption(set_id=base_set.id, key="base_expense_ratio",   value_number=OM_OPEX_RATIO),
+            Assumption(set_id=base_set.id, key="exit_cap_rate",        value_number=OM_COMP_CAP_RATE_AVG),
+            Assumption(set_id=base_set.id, key="projection_periods",   value_number=5),
+            Assumption(set_id=base_set.id, key="ltv",                  value_number=0.70),
+        ]
+        await repos["assumption"].bulk_upsert(assumptions)
+
+        result = await services["financial_model"].compute(base_set.id)
+
+        print(
+            f"\n  DCF — IRR={result.irr:.3%}, EM={result.equity_multiple:.2f}x, "
+            f"CoC={result.cash_on_cash_yr1:.3%}, cap_rate_on_cost={result.cap_rate_on_cost:.4%}"
+        )
+
+        # Cap rate on cost ≈ OM implied cap rate (5.51%) — tolerance ±50bps
+        assert abs(result.cap_rate_on_cost - OM_IMPLIED_CAP_RATE) < 0.005, (
+            f"cap_rate_on_cost={result.cap_rate_on_cost:.4f} not within 50bps of "
+            f"OM implied cap rate {OM_IMPLIED_CAP_RATE:.4f}"
+        )
+        assert result.equity_multiple > 1.0, (
+            f"equity_multiple={result.equity_multiple:.3f} — must be > 1.0x"
+        )
+        assert result.irr is not None, "IRR bisection should converge"
+        assert result.cash_on_cash_yr1 > 0, (
+            f"cash_on_cash_yr1={result.cash_on_cash_yr1:.4f} — property should cover debt service"
+        )
+
     async def test_judge_rejects_bad_benchmarks(self, services, repos):
         """Verify the LLM judge correctly FAILs when given nonsensical benchmarks."""
         _skip_without_api_key()
