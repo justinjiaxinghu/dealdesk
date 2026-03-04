@@ -702,6 +702,114 @@ class TestGoldenPipeline:
             "Judge should have listed specific issues"
         )
 
+    async def test_sensitivity_grid(self, services, repos):
+        """Sensitivity: correct grid shape, economic monotonicity, and LLM judge confirmation."""
+        _skip_without_api_key()
+
+        deal = await services["deal"].create_deal(
+            name="Lund Pointe Sensitivity",
+            address="3300 Valentine Ln SE",
+            city="Port Orchard",
+            state="WA",
+            property_type=PropertyType.MULTIFAMILY,
+            square_feet=OM_SQUARE_FEET,
+        )
+        assumption_sets = await repos["assumption_set"].get_by_deal_id(deal.id)
+        base_set = assumption_sets[0]
+
+        assumptions = [
+            Assumption(set_id=base_set.id, key="purchase_price",       value_number=OM_OFFERING_PRICE),
+            Assumption(set_id=base_set.id, key="base_gross_revenue",   value_number=OM_GROSS_REVENUE),
+            Assumption(set_id=base_set.id, key="base_occupancy_rate",  value_number=1.0 - OM_VACANCY_RATE),
+            Assumption(set_id=base_set.id, key="base_expense_ratio",   value_number=OM_OPEX_RATIO),
+            Assumption(set_id=base_set.id, key="exit_cap_rate",        value_number=OM_COMP_CAP_RATE_AVG),
+            Assumption(set_id=base_set.id, key="projection_periods",   value_number=5),
+            Assumption(set_id=base_set.id, key="ltv",                  value_number=0.70),
+        ]
+        await repos["assumption"].bulk_upsert(assumptions)
+
+        x_prices = [2_800_000, 3_000_000, 3_150_000, 3_300_000, 3_500_000]
+        y_cap_rates = [0.045, 0.050, 0.055, 0.060, 0.065]
+
+        grids = await services["financial_model"].compute_sensitivity(
+            set_id=base_set.id,
+            x_axis={"key": "purchase_price", "values": x_prices},
+            y_axis={"key": "exit_cap_rate", "values": y_cap_rates},
+            metrics=["irr", "equity_multiple"],
+        )
+
+        irr_grid = grids["irr"]
+        em_grid = grids["equity_multiple"]
+
+        # --- Shape ---
+        assert len(irr_grid) == len(y_cap_rates), f"Expected {len(y_cap_rates)} rows, got {len(irr_grid)}"
+        assert all(len(row) == len(x_prices) for row in irr_grid), "IRR grid row length mismatch"
+        assert len(em_grid) == len(y_cap_rates), f"Expected {len(y_cap_rates)} EM rows"
+
+        # --- Monotonicity: higher purchase_price → lower IRR (each row) ---
+        for i, row in enumerate(irr_grid):
+            non_none = [v for v in row if v is not None]
+            assert non_none == sorted(non_none, reverse=True), (
+                f"Row {i} (exit_cap_rate={y_cap_rates[i]:.3f}): IRR should decrease as "
+                f"purchase_price increases, got {[f'{v:.3%}' if v else 'None' for v in row]}"
+            )
+
+        # --- Monotonicity: higher exit_cap_rate → lower exit value → lower IRR (each column) ---
+        for j, price in enumerate(x_prices):
+            col = [irr_grid[i][j] for i in range(len(y_cap_rates))]
+            non_none = [v for v in col if v is not None]
+            assert non_none == sorted(non_none, reverse=True), (
+                f"Col {j} (purchase_price={price:,.0f}): IRR should decrease as "
+                f"exit_cap_rate increases (higher cap rate = lower exit value), "
+                f"got {[f'{v:.3%}' if v else 'None' for v in col]}"
+            )
+
+        # Format grid for display and judge
+        header = "purchase_price →\n" + " " * 12 + "  ".join(f"{p/1e6:.2f}M" for p in x_prices)
+        rows_str = []
+        for i, cap_rate in enumerate(y_cap_rates):
+            row_str = f"exit_cap={cap_rate:.3f}: " + "  ".join(
+                f"{v:.2%}" if v is not None else "N/A" for v in irr_grid[i]
+            )
+            rows_str.append(row_str)
+        irr_table = header + "\n" + "\n".join(rows_str)
+        print(f"\n  IRR sensitivity grid:\n{irr_table}")
+
+        judgment = await _llm_judge(
+            context=(
+                f"Lund Pointe Apartments, Port Orchard WA. 25-unit multifamily. "
+                f"Base purchase price: ${OM_OFFERING_PRICE:,.0f}. "
+                f"Base exit cap rate: {OM_COMP_CAP_RATE_AVG:.2%}. 5-year hold, 70% LTV."
+            ),
+            data_to_evaluate=(
+                f"IRR sensitivity grid (purchase price on x-axis, exit cap rate on y-axis):\n{irr_table}"
+            ),
+            criteria=(
+                "Evaluate whether the directional relationships in this IRR sensitivity grid make economic sense:\n"
+                "1. As purchase price increases (left to right), IRR should decrease — "
+                "paying more for the same income stream lowers returns\n"
+                "2. As exit cap rate increases (top to bottom), IRR should decrease — "
+                "a higher exit cap rate compresses the exit value (exit_value = NOI / cap_rate), "
+                "reducing proceeds and therefore returns\n"
+                "3. Center cell (base case) IRR should be plausible for this asset "
+                "(roughly 8%–18% for a stabilised WA multifamily at 70% LTV)\n"
+                "4. The range of IRR values across the grid should be economically reasonable "
+                "(roughly 5%–25% spread, not 0.001% to 500%)\n"
+                "If directions are wrong or values are nonsensical, verdict must be FAIL."
+            ),
+        )
+
+        print(f"\n  Judge verdict: {judgment['verdict']}")
+        print(f"  Reasoning: {judgment['reasoning']}")
+        if judgment.get("issues"):
+            print(f"  Issues: {judgment['issues']}")
+
+        assert judgment["verdict"] == "PASS", (
+            f"LLM judge FAILED sensitivity grid quality.\n"
+            f"Reasoning: {judgment['reasoning']}\n"
+            f"Issues: {judgment.get('issues', [])}"
+        )
+
     async def test_judge_rejects_bad_benchmarks(self, services, repos):
         """Verify the LLM judge correctly FAILs when given nonsensical benchmarks."""
         _skip_without_api_key()

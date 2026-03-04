@@ -41,7 +41,10 @@ async def test_extract_persists_results(deal, document):
     processor = AsyncMock()
     processor.extract_text.return_value = [PageText(page_number=1, text="NOI $1.4M")]
 
-    svc = HistoricalFinancialService(deal_repo, doc_repo, hf_repo, llm, processor)
+    file_storage = AsyncMock()
+    file_storage.retrieve.return_value = "/tmp/test.pdf"
+
+    svc = HistoricalFinancialService(deal_repo, doc_repo, hf_repo, llm, processor, file_storage)
     result = await svc.extract(deal.id, document.id)
 
     llm.extract_historical_financials.assert_called_once()
@@ -52,6 +55,6 @@ async def test_extract_persists_results(deal, document):
 async def test_extract_raises_if_deal_not_found():
     deal_repo = AsyncMock()
     deal_repo.get_by_id.return_value = None
-    svc = HistoricalFinancialService(deal_repo, AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock())
+    svc = HistoricalFinancialService(deal_repo, AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock())
     with pytest.raises(ValueError, match="not found"):
         await svc.extract(uuid4(), uuid4())
