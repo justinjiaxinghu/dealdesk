@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 
-import { AssumptionEditor } from "@/components/assumptions/assumption-editor";
+import { AssumptionPanel } from "@/components/assumptions/assumption-panel";
 import { DealProgressBar } from "@/components/deals/deal-progress-bar";
 import { ProcessingTracker } from "@/components/documents/processing-tracker";
 import { ExtractedFieldsTable } from "@/components/extraction/extracted-fields-table";
@@ -18,10 +18,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeal } from "@/hooks/use-deal";
 import { ValidationTable } from "@/components/validation/validation-table";
 import { CompsTab } from "@/components/comps/comps-tab";
+import { HistoricalFinancialsTab } from "@/components/historical/historical-financials-tab";
+import { SensitivityTab } from "@/components/sensitivity/sensitivity-tab";
 import { assumptionService } from "@/services/assumption.service";
 import { compsService } from "@/services/comps.service";
 import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
+import { historicalFinancialService } from "@/services/historical-financial.service";
 import { validationService } from "@/services/validation.service";
 
 export default function DealWorkspacePage({
@@ -38,6 +41,7 @@ export default function DealWorkspacePage({
     assumptions,
     validations,
     comps,
+    historicalFinancials,
     loading,
     refresh,
   } = useDeal(id);
@@ -45,7 +49,7 @@ export default function DealWorkspacePage({
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<
-    "extract" | "assumptions" | "validate" | "comps" | null
+    "extract" | "historical" | "assumptions" | "validate" | "comps" | null
   >(null);
   const [pipelineDetail, setPipelineDetail] = useState<string | null>(null);
   const pipelineRanRef = useRef(false);
@@ -61,7 +65,7 @@ export default function DealWorkspacePage({
     const allDocsComplete =
       documents.length > 0 &&
       documents.every((d) => d.processing_status === "complete");
-    if (allDocsComplete && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
+    if (allDocsComplete && historicalFinancials.length > 0 && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
 
     pipelineRanRef.current = true;
     let cancelled = false;
@@ -87,7 +91,22 @@ export default function DealWorkspacePage({
         if (cancelled) return;
         await refresh();
 
-        // Step 2: Generate benchmarks if none exist yet
+        // Step 2: Extract historical financials from each completed doc
+        const freshDocs = await documentService.list(id);
+        const completedDocs = freshDocs.filter((d) => d.processing_status === "complete");
+        const existingHf = await historicalFinancialService.list(id);
+        if (existingHf.length === 0 && completedDocs.length > 0) {
+          if (cancelled) return;
+          setPipelineStep("historical");
+          setPipelineDetail("Extracting historical financials from OM...");
+          await Promise.allSettled(
+            completedDocs.map((d) => historicalFinancialService.extract(id, d.id))
+          );
+          if (cancelled) return;
+          await refresh();
+        }
+
+        // Step 3: Generate benchmarks if none exist yet
         const freshSets = await assumptionService.listSets(id);
         const freshSetId = freshSets.length > 0 ? freshSets[0].id : null;
 
@@ -167,6 +186,9 @@ export default function DealWorkspacePage({
 
   const activeSetId = assumptionSets.length > 0 ? assumptionSets[0].id : null;
 
+  const allGroupsFilled = ["model_structure", "transaction", "operating", "financing", "return_targets"]
+    .every((group) => assumptions.some((a) => a.group === group && a.value_number !== null));
+
   function handleExport() {
     if (!activeSetId) return;
     exportService.downloadXlsx(activeSetId);
@@ -217,7 +239,7 @@ export default function DealWorkspacePage({
         </div>
         <Button
           onClick={handleExport}
-          disabled={!activeSetId}
+          disabled={!activeSetId || !allGroupsFilled}
         >
           Export XLSX
         </Button>
@@ -245,9 +267,11 @@ export default function DealWorkspacePage({
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="extraction">Extraction</TabsTrigger>
+          <TabsTrigger value="historical">Historical Financials</TabsTrigger>
           <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
           <TabsTrigger value="comps">Comps</TabsTrigger>
+          <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -315,6 +339,11 @@ export default function DealWorkspacePage({
           <ExtractedFieldsTable fields={fields} />
         </TabsContent>
 
+        {/* Historical Financials Tab */}
+        <TabsContent value="historical" className="pt-4">
+          <HistoricalFinancialsTab items={historicalFinancials} />
+        </TabsContent>
+
         {/* Assumptions Tab */}
         <TabsContent value="assumptions" className="space-y-4 pt-4">
           <div className="flex items-center gap-3">
@@ -331,7 +360,7 @@ export default function DealWorkspacePage({
             </Button>
           </div>
 
-          <AssumptionEditor assumptions={assumptions} />
+          <AssumptionPanel assumptions={assumptions} />
         </TabsContent>
 
         {/* Validation Tab */}
@@ -346,6 +375,11 @@ export default function DealWorkspacePage({
             fields={fields}
             onRefetch={handleRefetchComps}
           />
+        </TabsContent>
+
+        {/* Sensitivity Tab */}
+        <TabsContent value="sensitivity" className="pt-4">
+          <SensitivityTab dealId={deal.id} />
         </TabsContent>
       </Tabs>
     </div>

@@ -36,16 +36,26 @@ export async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const method = options.method ?? "GET";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  console.debug(`[apiFetch] ${method} ${url}`);
 
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    console.error(`[apiFetch] Network error on ${method} ${url}:`, err);
+    throw err;
+  }
+
+  console.debug(`[apiFetch] ${method} ${url} → ${res.status} ${res.statusText}`);
   return handleResponse<T>(res);
 }
 
@@ -59,10 +69,19 @@ export async function apiUpload<T>(
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    body: formData,
-  });
+  console.debug(`[apiUpload] POST ${url}`);
 
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+  } catch (err) {
+    console.error(`[apiUpload] Network error on POST ${url}:`, err);
+    throw err;
+  }
+
+  console.debug(`[apiUpload] POST ${url} → ${res.status} ${res.statusText}`);
   return handleResponse<T>(res);
 }

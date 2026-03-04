@@ -14,6 +14,7 @@ from app.domain.entities import (
     ExtractedField,
     MarketTable,
 )
+from app.domain.entities.historical_financial import HistoricalFinancial
 from app.domain.interfaces.repositories import (
     AssumptionRepository,
     AssumptionSetRepository,
@@ -21,6 +22,7 @@ from app.domain.interfaces.repositories import (
     DocumentRepository,
     ExportRepository,
     ExtractedFieldRepository,
+    HistoricalFinancialRepository,
     MarketTableRepository,
 )
 from app.domain.value_objects.types import DealFilters, ProcessingStep
@@ -189,3 +191,18 @@ class InMemoryExportRepository(ExportRepository):
 
     async def get_by_deal_id(self, deal_id: UUID) -> list[Export]:
         return [e for e in self._store if e.deal_id == deal_id]
+
+
+class InMemoryHistoricalFinancialRepository(HistoricalFinancialRepository):
+    def __init__(self) -> None:
+        self._store: list[HistoricalFinancial] = []
+
+    async def bulk_upsert(self, items: list[HistoricalFinancial]) -> list[HistoricalFinancial]:
+        if items:
+            deal_id = items[0].deal_id
+            self._store = [i for i in self._store if i.deal_id != deal_id]
+        self._store.extend(items)
+        return items
+
+    async def get_by_deal_id(self, deal_id: UUID) -> list[HistoricalFinancial]:
+        return [i for i in self._store if i.deal_id == deal_id]

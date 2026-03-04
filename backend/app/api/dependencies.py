@@ -76,6 +76,9 @@ from app.infrastructure.persistence.comp_repo import SqlAlchemyCompRepository
 from app.infrastructure.persistence.field_validation_repo import (
     SqlAlchemyFieldValidationRepository,
 )
+from app.infrastructure.persistence.historical_financial_repo import (
+    SqlAlchemyHistoricalFinancialRepository,
+)
 
 
 def get_deal_repo(session: DbSession) -> SqlAlchemyDealRepository:
@@ -114,6 +117,10 @@ def get_comp_repo(session: DbSession) -> SqlAlchemyCompRepository:
     return SqlAlchemyCompRepository(session)
 
 
+def get_historical_financial_repo(session: DbSession) -> SqlAlchemyHistoricalFinancialRepository:
+    return SqlAlchemyHistoricalFinancialRepository(session)
+
+
 # ---------------------------------------------------------------------------
 # Service factories (compose repos + providers)
 # ---------------------------------------------------------------------------
@@ -123,6 +130,8 @@ from app.services.comps_service import CompsService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
+from app.services.financial_model_service import FinancialModelService
+from app.services.historical_financial_service import HistoricalFinancialService
 from app.services.validation_service import ValidationService
 
 
@@ -233,4 +242,27 @@ def get_comps_service(
         extracted_field_repo=extracted_field_repo,
         comp_repo=comp_repo,
         comps_provider=_combined_comps_provider,
+    )
+
+
+def get_financial_model_service(
+    assumption_repo: Annotated[SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)],
+) -> FinancialModelService:
+    return FinancialModelService(assumption_repo=assumption_repo)
+
+
+def get_historical_financial_service(
+    deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
+    document_repo: Annotated[SqlAlchemyDocumentRepository, Depends(get_document_repo)],
+    hf_repo: Annotated[
+        SqlAlchemyHistoricalFinancialRepository, Depends(get_historical_financial_repo)
+    ],
+) -> HistoricalFinancialService:
+    return HistoricalFinancialService(
+        deal_repo=deal_repo,
+        document_repo=document_repo,
+        hf_repo=hf_repo,
+        llm_provider=_llm_provider,
+        document_processor=_document_processor,
+        file_storage=_file_storage,
     )

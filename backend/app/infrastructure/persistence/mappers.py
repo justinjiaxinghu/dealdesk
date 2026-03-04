@@ -11,6 +11,7 @@ from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.value_objects.enums import (
+    AssumptionGroup,
     CompSource,
     DocumentType,
     ExportType,
@@ -20,6 +21,7 @@ from app.domain.value_objects.enums import (
     ValidationStatus,
 )
 from app.domain.value_objects.types import ProcessingStep
+from app.domain.entities.historical_financial import HistoricalFinancial
 from app.infrastructure.persistence.models import (
     AssumptionModel,
     AssumptionSetModel,
@@ -29,6 +31,7 @@ from app.infrastructure.persistence.models import (
     ExportModel,
     ExtractedFieldModel,
     FieldValidationModel,
+    HistoricalFinancialModel,
     MarketTableModel,
 )
 
@@ -224,6 +227,9 @@ def assumption_to_entity(model: AssumptionModel) -> Assumption:
         source_type=SourceType(model.source_type),
         source_ref=model.source_ref,
         notes=model.notes,
+        group=AssumptionGroup(model.group) if model.group else None,
+        forecast_method=model.forecast_method,
+        forecast_params=model.forecast_params,
         updated_at=model.updated_at,
     )
 
@@ -240,6 +246,9 @@ def assumption_to_model(entity: Assumption) -> AssumptionModel:
         source_type=entity.source_type.value,
         source_ref=entity.source_ref,
         notes=entity.notes,
+        group=entity.group.value if entity.group else None,
+        forecast_method=entity.forecast_method,
+        forecast_params=entity.forecast_params,
         updated_at=entity.updated_at,
     )
 
@@ -364,4 +373,35 @@ def comp_to_model(entity: Comp) -> CompModel:
         opex_per_unit=entity.opex_per_unit,
         fetched_at=entity.fetched_at,
         created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Historical Financial
+# ---------------------------------------------------------------------------
+
+
+def historical_financial_to_model(entity: HistoricalFinancial) -> HistoricalFinancialModel:
+    return HistoricalFinancialModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        period_label=entity.period_label,
+        metric_key=entity.metric_key,
+        value=entity.value,
+        unit=entity.unit,
+        source=entity.source,
+        created_at=entity.created_at,
+    )
+
+
+def historical_financial_to_entity(model: HistoricalFinancialModel) -> HistoricalFinancial:
+    return HistoricalFinancial(
+        id=model.id,
+        deal_id=model.deal_id,
+        period_label=model.period_label,
+        metric_key=model.metric_key,
+        value=model.value,
+        unit=model.unit,
+        source=model.source,
+        created_at=model.created_at,
     )

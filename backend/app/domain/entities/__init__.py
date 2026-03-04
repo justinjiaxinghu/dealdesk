@@ -6,6 +6,7 @@ from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
+from app.domain.entities.historical_financial import HistoricalFinancial
 
 __all__ = [
     "Deal",
@@ -17,4 +18,5 @@ __all__ = [
     "Export",
     "FieldValidation",
     "Comp",
+    "HistoricalFinancial",
 ]

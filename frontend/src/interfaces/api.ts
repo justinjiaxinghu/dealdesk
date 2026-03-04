@@ -81,6 +81,9 @@ export interface Assumption {
   source_ref: string | null;
   notes: string | null;
   updated_at: string;
+  group: string | null;
+  forecast_method: string | null;
+  forecast_params: Record<string, unknown> | null;
 }
 
 export interface ExportRecord {
@@ -166,4 +169,40 @@ export interface Comp {
   opex_per_unit: number | null;
   fetched_at: string;
   created_at: string;
+}
+
+export interface HistoricalFinancial {
+  id: string;
+  deal_id: string;
+  period_label: string;
+  metric_key: string;
+  value: number;
+  unit: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface ProjectionResult {
+  irr: number | null;
+  equity_multiple: number;
+  cash_on_cash_yr1: number;
+  cap_rate_on_cost: number;
+  cash_flows: number[];
+}
+
+export interface SensitivityAxis {
+  key: string;
+  values: number[];
+}
+
+export interface SensitivityRequest {
+  x_axis: SensitivityAxis;
+  y_axis: SensitivityAxis;
+  metrics?: string[];
+}
+
+export interface SensitivityResponse {
+  grids: Record<string, (number | null)[][]>;
+  x_axis: SensitivityAxis;
+  y_axis: SensitivityAxis;
 }

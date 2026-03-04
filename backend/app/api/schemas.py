@@ -145,6 +145,9 @@ class AssumptionResponse(BaseModel):
     source_type: SourceType
     source_ref: str | None = None
     notes: str | None = None
+    group: str | None = None
+    forecast_method: str | None = None
+    forecast_params: dict | None = None
     updated_at: datetime
 
 
@@ -157,6 +160,9 @@ class UpdateAssumptionRequest(BaseModel):
     source_type: SourceType = SourceType.MANUAL
     source_ref: str | None = None
     notes: str | None = None
+    group: str | None = None
+    forecast_method: str | None = None
+    forecast_params: dict | None = None
 
 
 class BulkUpdateAssumptionsRequest(BaseModel):
@@ -244,6 +250,53 @@ class FieldValidationResponse(BaseModel):
     confidence: float
     search_steps: list[SearchStepResponse] = []
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Historical Financials
+# ---------------------------------------------------------------------------
+
+
+class HistoricalFinancialResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID
+    period_label: str
+    metric_key: str
+    value: float
+    unit: str | None
+    source: str
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Financial Model
+# ---------------------------------------------------------------------------
+
+
+class ProjectionResultResponse(BaseModel):
+    irr: float | None
+    equity_multiple: float
+    cash_on_cash_yr1: float
+    cap_rate_on_cost: float
+    cash_flows: list[float]
+
+
+class SensitivityAxisRequest(BaseModel):
+    key: str
+    values: list[float]
+
+
+class SensitivityRequest(BaseModel):
+    x_axis: SensitivityAxisRequest
+    y_axis: SensitivityAxisRequest
+    metrics: list[str] = ["irr", "equity_multiple", "cash_on_cash_yr1", "cap_rate_on_cost"]
+
+
+class SensitivityResponse(BaseModel):
+    grids: dict[str, list[list[float | None]]]
+    x_axis: SensitivityAxisRequest
+    y_axis: SensitivityAxisRequest
 
 
 # ---------------------------------------------------------------------------

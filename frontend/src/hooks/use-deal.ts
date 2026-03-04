@@ -10,11 +10,13 @@ import type {
   Document,
   ExtractedField,
   FieldValidation,
+  HistoricalFinancial,
 } from "@/interfaces/api";
 import { assumptionService } from "@/services/assumption.service";
 import { compsService } from "@/services/comps.service";
 import { dealService } from "@/services/deal.service";
 import { documentService } from "@/services/document.service";
+import { historicalFinancialService } from "@/services/historical-financial.service";
 import { validationService } from "@/services/validation.service";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,7 @@ export function useDeal(id: string) {
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [validations, setValidations] = useState<FieldValidation[]>([]);
   const [comps, setComps] = useState<Comp[]>([]);
+  const [historicalFinancials, setHistoricalFinancials] = useState<HistoricalFinancial[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
 
@@ -65,12 +68,13 @@ export function useDeal(id: string) {
       setLoading(true);
     }
     try {
-      const [dealData, docs, sets, vals, compsData] = await Promise.all([
+      const [dealData, docs, sets, vals, compsData, historicalsData] = await Promise.all([
         dealService.get(id),
         documentService.list(id),
         assumptionService.listSets(id),
         validationService.list(id),
         compsService.list(id),
+        historicalFinancialService.list(id).catch(() => [] as HistoricalFinancial[]),
       ]);
 
       setDeal(dealData);
@@ -78,6 +82,7 @@ export function useDeal(id: string) {
       setAssumptionSets(sets);
       setValidations(vals);
       setComps(compsData);
+      setHistoricalFinancials(historicalsData);
 
       // Fetch extracted fields for the first document (if any)
       if (docs.length > 0) {
@@ -112,6 +117,7 @@ export function useDeal(id: string) {
     assumptions,
     validations,
     comps,
+    historicalFinancials,
     loading,
     refresh,
   };

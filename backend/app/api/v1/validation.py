@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.infrastructure.persistence.field_validation_repo import (
 )
 from app.services.validation_service import ValidationService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["validation"])
 
 

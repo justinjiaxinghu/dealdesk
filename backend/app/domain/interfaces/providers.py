@@ -9,6 +9,7 @@ from app.domain.value_objects import (
     BenchmarkSuggestion,
     ExtractedTable,
     FieldValidationResult,
+    HistoricalFinancialResult,
     Location,
     NormalizedField,
     PageText,
@@ -53,6 +54,13 @@ class LLMProvider(ABC):
         phase: str | None = None,
         prior_quick_results: list[dict] | None = None,
     ) -> list[FieldValidationResult]: ...
+
+    @abstractmethod
+    async def extract_historical_financials(
+        self,
+        pages: list[PageText],
+        deal: Deal,
+    ) -> list[HistoricalFinancialResult]: ...
 
 
 class FileStorage(ABC):

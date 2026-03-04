@@ -69,6 +69,14 @@ class QuickExtractResult:
     square_feet: float | None = None
 
 
+@dataclass(frozen=True)
+class HistoricalFinancialResult:
+    period_label: str    # "T12", "2024", "2023"
+    metric_key: str      # "gross_revenue", "noi", "expense_ratio", "occupancy_rate", etc.
+    value: float
+    unit: str | None = None
+
+
 @dataclass
 class DealFilters:
     property_type: str | None = None

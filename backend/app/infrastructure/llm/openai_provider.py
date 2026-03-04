@@ -19,6 +19,7 @@ from app.domain.value_objects.enums import PropertyType
 from app.domain.value_objects.types import (
     BenchmarkSuggestion,
     FieldValidationResult,
+    HistoricalFinancialResult,
     Location,
     NormalizedField,
     PageText,
@@ -173,6 +174,51 @@ class OpenAILLMProvider(LLMProvider):
             property_type=pt,
             square_feet=float(sq_ft) if sq_ft is not None else None,
         )
+
+    async def extract_historical_financials(
+        self,
+        pages: list[PageText],
+        deal: Deal,
+    ) -> list[HistoricalFinancialResult]:
+        text = "\n".join(p.text for p in pages[:20])  # first 20 pages
+        prompt = (
+            "You are a real estate financial analyst. Extract historical financial data "
+            "from the following Offering Memorandum text.\n\n"
+            "Look for T12, trailing twelve months, prior year, or any historical P&L data. "
+            "Return a JSON object with key 'financials' containing an array of objects with:\n"
+            '  "period_label": string (e.g. "T12", "2024", "2023", "T-1", "T-2")\n'
+            '  "metric_key": string — use exactly these canonical keys:\n'
+            "    gross_revenue, effective_gross_income, total_operating_expenses, noi,\n"
+            "    expense_ratio, occupancy_rate, revenue_per_unit, opex_per_unit,\n"
+            "    net_rentable_area, total_units\n"
+            '  "value": number\n'
+            '  "unit": string (e.g. "$", "%", "$/unit")\n\n'
+            "Only include metrics you find explicitly in the text. If no historical data is found, "
+            'return {"financials": []}.\n\n'
+            f"OM Text:\n{text}"
+        )
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+        content = response.choices[0].message.content or "{}"
+        data = json.loads(content)
+        results = []
+        for item in data.get("financials", []):
+            try:
+                results.append(
+                    HistoricalFinancialResult(
+                        period_label=item["period_label"],
+                        metric_key=item["metric_key"],
+                        value=float(item["value"]),
+                        unit=item.get("unit"),
+                    )
+                )
+            except (KeyError, ValueError):
+                continue
+        return results
 
     async def _run_search_phase(
         self,
