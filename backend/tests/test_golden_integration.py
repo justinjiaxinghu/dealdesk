@@ -179,6 +179,7 @@ def services(repos, tmp_path):
         hf_repo=repos["historical_financial"],
         llm_provider=llm_provider,
         document_processor=document_processor,
+        file_storage=file_storage,
     )
     financial_model_service = FinancialModelService(
         assumption_repo=repos["assumption"],
@@ -588,6 +589,117 @@ class TestGoldenPipeline:
             f"LLM judge FAILED DCF quality.\n"
             f"Reasoning: {judgment['reasoning']}\n"
             f"Issues: {judgment.get('issues', [])}"
+        )
+
+    async def test_historical_financials_extraction(self, services, repos):
+        """LLM-as-judge: GPT-4o extracts plausible historical financials from the OM."""
+        _skip_without_api_key()
+
+        deal = await services["deal"].create_deal(
+            name="Lund Pointe HF",
+            address="3300 Valentine Ln SE",
+            city="Port Orchard",
+            state="WA",
+            property_type=PropertyType.MULTIFAMILY,
+            square_feet=OM_SQUARE_FEET,
+        )
+
+        pdf_bytes = SAMPLE_OM_PATH.read_bytes()
+        doc = await services["document"].upload_document(
+            deal_id=deal.id,
+            file_data=pdf_bytes,
+            filename="lund_pointe_om.pdf",
+        )
+        await services["document"].process_document(doc.id)
+
+        results = await services["historical_financial"].extract(deal.id, doc.id)
+        assert len(results) > 0, "No historical financials extracted"
+
+        rows_summary = "\n".join(
+            f"- period={r.period_label}, metric={r.metric_key}, value={r.value}, unit={r.unit}"
+            for r in results
+        )
+        print(f"\n  Extracted {len(results)} historical financial rows:\n{rows_summary}")
+
+        om_context = (
+            "Lund Pointe Apartments, Port Orchard WA. 25-unit multifamily.\n"
+            f"Pro forma gross revenue: ${OM_GROSS_REVENUE:,.0f}/yr. "
+            f"Pro forma NOI: ${OM_PRO_FORMA_NOI:,.0f}/yr. "
+            f"Vacancy: {OM_VACANCY_RATE:.0%}. Expenses: ${OM_EXPENSES:,.0f}. "
+            f"Reserves: ${OM_RESERVES:,.0f}."
+        )
+
+        judgment = await _llm_judge(
+            context=om_context,
+            data_to_evaluate=f"Extracted historical financial rows:\n{rows_summary}",
+            criteria=(
+                "Evaluate whether these historical financial rows are plausible for this property. Check:\n"
+                "1. At least one revenue metric and one NOI or expense metric is present\n"
+                "2. Revenue values are in the plausible range for a 25-unit WA multifamily "
+                "(not orders of magnitude off from ~$284K/yr gross)\n"
+                "3. Period labels are recognisable financial period names (T12, Prior Year, "
+                "Trailing 12, 2023, 2024, etc.)\n"
+                "4. Metric keys are standard CRE financial line items (gross_revenue, noi, "
+                "vacancy_loss, operating_expenses, etc.)\n"
+                "5. No hallucinated metrics with nonsensical values\n"
+                "Minor omissions are acceptable. Incorrect values or fabricated metrics are not."
+            ),
+        )
+
+        print(f"\n  Judge verdict: {judgment['verdict']}")
+        print(f"  Reasoning: {judgment['reasoning']}")
+        if judgment.get("issues"):
+            print(f"  Issues: {judgment['issues']}")
+
+        assert judgment["verdict"] == "PASS", (
+            f"LLM judge FAILED historical financials quality.\n"
+            f"Reasoning: {judgment['reasoning']}\n"
+            f"Issues: {judgment.get('issues', [])}"
+        )
+
+    async def test_judge_rejects_bad_historical_financials(self, services, repos):
+        """Verify the LLM judge correctly FAILs fabricated historical financials."""
+        _skip_without_api_key()
+
+        bad_rows = (
+            "Extracted historical financial rows:\n"
+            "- period=T12, metric=gross_revenue, value=50000000.0, unit=$/yr\n"   # 50M for 25-unit — absurd
+            "- period=T12, metric=noi, value=-2000000.0, unit=$/yr\n"             # Deeply negative
+            "- period=T12, metric=vacancy_rate, value=0.95, unit=ratio\n"         # 95% vacancy
+            "- period=T12, metric=cap_rate, value=0.001, unit=ratio\n"            # 0.1% cap rate
+        )
+
+        om_context = (
+            "Lund Pointe Apartments, Port Orchard WA. 25-unit multifamily.\n"
+            f"Pro forma gross revenue: ${OM_GROSS_REVENUE:,.0f}/yr. "
+            f"Pro forma NOI: ${OM_PRO_FORMA_NOI:,.0f}/yr."
+        )
+
+        judgment = await _llm_judge(
+            context=om_context,
+            data_to_evaluate=bad_rows,
+            criteria=(
+                "Evaluate whether these historical financial rows are plausible for this property. Check:\n"
+                "1. At least one revenue metric and one NOI or expense metric is present\n"
+                "2. Revenue values are in the plausible range for a 25-unit WA multifamily "
+                "(not orders of magnitude off from ~$284K/yr gross)\n"
+                "3. Period labels are recognisable financial period names\n"
+                "4. Metric keys are standard CRE financial line items\n"
+                "5. No hallucinated metrics with nonsensical values\n"
+                "Minor omissions are acceptable. Incorrect values or fabricated metrics are not."
+            ),
+        )
+
+        print(f"\n  Judge verdict (should be FAIL): {judgment['verdict']}")
+        print(f"  Reasoning: {judgment['reasoning']}")
+
+        assert judgment["verdict"] == "FAIL", (
+            "LLM judge should have FAILED fabricated historical financials, "
+            f"but returned: {judgment['verdict']}\n"
+            f"Reasoning: {judgment['reasoning']}"
+        )
+        assert len(judgment.get("issues", [])) > 0, (
+            "Judge should have listed specific issues"
         )
 
     async def test_judge_rejects_bad_benchmarks(self, services, repos):

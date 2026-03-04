@@ -1,8 +1,7 @@
 from __future__ import annotations
-from pathlib import Path
 from uuid import UUID
 from app.domain.entities.historical_financial import HistoricalFinancial
-from app.domain.interfaces.providers import DocumentProcessor, LLMProvider
+from app.domain.interfaces.providers import DocumentProcessor, FileStorage, LLMProvider
 from app.domain.interfaces.repositories import (
     DealRepository,
     DocumentRepository,
@@ -18,12 +17,14 @@ class HistoricalFinancialService:
         hf_repo: HistoricalFinancialRepository,
         llm_provider: LLMProvider,
         document_processor: DocumentProcessor,
+        file_storage: FileStorage,
     ) -> None:
         self._deal_repo = deal_repo
         self._document_repo = document_repo
         self._hf_repo = hf_repo
         self._llm = llm_provider
         self._processor = document_processor
+        self._file_storage = file_storage
 
     async def extract(self, deal_id: UUID, document_id: UUID) -> list[HistoricalFinancial]:
         deal = await self._deal_repo.get_by_id(deal_id)
@@ -33,7 +34,8 @@ class HistoricalFinancialService:
         if document is None:
             raise ValueError(f"Document {document_id} not found")
 
-        pages = await self._processor.extract_text(Path(document.file_path))
+        file_path = await self._file_storage.retrieve(document.file_path)
+        pages = await self._processor.extract_text(file_path)
         results = await self._llm.extract_historical_financials(pages, deal)
 
         items = [

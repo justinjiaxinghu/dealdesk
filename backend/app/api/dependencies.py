@@ -264,4 +264,5 @@ def get_historical_financial_service(
         hf_repo=hf_repo,
         llm_provider=_llm_provider,
         document_processor=_document_processor,
+        file_storage=_file_storage,
     )
