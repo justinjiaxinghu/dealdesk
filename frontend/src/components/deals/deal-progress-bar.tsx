@@ -3,6 +3,7 @@
 const STAGES = [
   { key: "upload", label: "Upload OM" },
   { key: "extract", label: "Extract Data" },
+  { key: "historical", label: "Historical Financials" },
   { key: "assumptions", label: "Set Assumptions" },
   { key: "validate", label: "Validate OM" },
   { key: "comps", label: "Find Comps" },
@@ -13,6 +14,7 @@ type StageKey = (typeof STAGES)[number]["key"];
 
 const ACTIVE_STEP_LABELS: Record<string, string> = {
   extract: "Extracting data...",
+  historical: "Extracting historical financials...",
   assumptions: "Generating benchmarks...",
   validate: "Validating OM...",
   comps: "Finding comparable properties...",
@@ -29,9 +31,9 @@ interface DealProgressBarProps {
 }
 
 function getActiveStage(props: DealProgressBarProps): number {
-  if (props.hasComps) return 5;
-  if (props.hasValidations) return 4;
-  if (props.hasAssumptions) return 3;
+  if (props.hasComps) return 6;
+  if (props.hasValidations) return 5;
+  if (props.hasAssumptions) return 4;
   if (props.hasFields) return 2;
   if (props.hasDocuments) return 1;
   return 0;

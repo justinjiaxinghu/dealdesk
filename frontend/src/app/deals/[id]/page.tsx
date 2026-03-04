@@ -24,6 +24,7 @@ import { assumptionService } from "@/services/assumption.service";
 import { compsService } from "@/services/comps.service";
 import { documentService } from "@/services/document.service";
 import { exportService } from "@/services/export.service";
+import { historicalFinancialService } from "@/services/historical-financial.service";
 import { validationService } from "@/services/validation.service";
 
 export default function DealWorkspacePage({
@@ -48,7 +49,7 @@ export default function DealWorkspacePage({
   const [generatingBenchmarks, setGeneratingBenchmarks] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<
-    "extract" | "assumptions" | "validate" | "comps" | null
+    "extract" | "historical" | "assumptions" | "validate" | "comps" | null
   >(null);
   const [pipelineDetail, setPipelineDetail] = useState<string | null>(null);
   const pipelineRanRef = useRef(false);
@@ -64,7 +65,7 @@ export default function DealWorkspacePage({
     const allDocsComplete =
       documents.length > 0 &&
       documents.every((d) => d.processing_status === "complete");
-    if (allDocsComplete && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
+    if (allDocsComplete && historicalFinancials.length > 0 && assumptions.length > 0 && validations.length > 0 && comps.length > 0) return;
 
     pipelineRanRef.current = true;
     let cancelled = false;
@@ -90,7 +91,22 @@ export default function DealWorkspacePage({
         if (cancelled) return;
         await refresh();
 
-        // Step 2: Generate benchmarks if none exist yet
+        // Step 2: Extract historical financials from each completed doc
+        const freshDocs = await documentService.list(id);
+        const completedDocs = freshDocs.filter((d) => d.processing_status === "complete");
+        const existingHf = await historicalFinancialService.list(id);
+        if (existingHf.length === 0 && completedDocs.length > 0) {
+          if (cancelled) return;
+          setPipelineStep("historical");
+          setPipelineDetail("Extracting historical financials from OM...");
+          await Promise.allSettled(
+            completedDocs.map((d) => historicalFinancialService.extract(id, d.id))
+          );
+          if (cancelled) return;
+          await refresh();
+        }
+
+        // Step 3: Generate benchmarks if none exist yet
         const freshSets = await assumptionService.listSets(id);
         const freshSetId = freshSets.length > 0 ? freshSets[0].id : null;
 
