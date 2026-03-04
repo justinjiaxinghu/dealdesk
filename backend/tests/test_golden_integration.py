@@ -38,10 +38,13 @@ from app.infrastructure.document_processing.pdfplumber_processor import (
 from app.infrastructure.export.excel_exporter import OpenpyxlExcelExporter
 from app.infrastructure.file_storage.local import LocalFileStorage
 from app.infrastructure.llm.openai_provider import OpenAILLMProvider
+from app.domain.entities.assumption import Assumption
 from app.services.benchmark_service import BenchmarkService
 from app.services.deal_service import DealService
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
+from app.services.financial_model_service import FinancialModelService
+from app.services.historical_financial_service import HistoricalFinancialService
 from tests.conftest import (
     InMemoryAssumptionRepository,
     InMemoryAssumptionSetRepository,
@@ -49,6 +52,7 @@ from tests.conftest import (
     InMemoryDocumentRepository,
     InMemoryExportRepository,
     InMemoryExtractedFieldRepository,
+    InMemoryHistoricalFinancialRepository,
     InMemoryMarketTableRepository,
 )
 
@@ -131,6 +135,7 @@ def repos():
         "assumption_set": InMemoryAssumptionSetRepository(),
         "assumption": InMemoryAssumptionRepository(),
         "export": InMemoryExportRepository(),
+        "historical_financial": InMemoryHistoricalFinancialRepository(),
     }
 
 
@@ -168,12 +173,24 @@ def services(repos, tmp_path):
         file_storage=file_storage,
         excel_exporter=excel_exporter,
     )
+    historical_financial_service = HistoricalFinancialService(
+        deal_repo=repos["deal"],
+        document_repo=repos["document"],
+        hf_repo=repos["historical_financial"],
+        llm_provider=llm_provider,
+        document_processor=document_processor,
+    )
+    financial_model_service = FinancialModelService(
+        assumption_repo=repos["assumption"],
+    )
 
     return {
         "deal": deal_service,
         "document": document_service,
         "benchmark": benchmark_service,
         "export": export_service,
+        "historical_financial": historical_financial_service,
+        "financial_model": financial_model_service,
     }
 
 
