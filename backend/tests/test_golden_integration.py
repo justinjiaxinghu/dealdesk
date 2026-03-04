@@ -517,6 +517,79 @@ class TestGoldenPipeline:
             f"cash_on_cash_yr1={result.cash_on_cash_yr1:.4f} — property should cover debt service"
         )
 
+    async def test_dcf_quality_llm_judge(self, services, repos):
+        """LLM-as-judge: verify DCF outputs are plausible for Lund Pointe."""
+        _skip_without_api_key()
+
+        deal = await services["deal"].create_deal(
+            name="Lund Pointe DCF Judge",
+            address="3300 Valentine Ln SE",
+            city="Port Orchard",
+            state="WA",
+            property_type=PropertyType.MULTIFAMILY,
+            square_feet=OM_SQUARE_FEET,
+        )
+        assumption_sets = await repos["assumption_set"].get_by_deal_id(deal.id)
+        base_set = assumption_sets[0]
+
+        assumptions = [
+            Assumption(set_id=base_set.id, key="purchase_price",       value_number=OM_OFFERING_PRICE),
+            Assumption(set_id=base_set.id, key="base_gross_revenue",   value_number=OM_GROSS_REVENUE),
+            Assumption(set_id=base_set.id, key="base_occupancy_rate",  value_number=1.0 - OM_VACANCY_RATE),
+            Assumption(set_id=base_set.id, key="base_expense_ratio",   value_number=OM_OPEX_RATIO),
+            Assumption(set_id=base_set.id, key="exit_cap_rate",        value_number=OM_COMP_CAP_RATE_AVG),
+            Assumption(set_id=base_set.id, key="projection_periods",   value_number=5),
+            Assumption(set_id=base_set.id, key="ltv",                  value_number=0.70),
+        ]
+        await repos["assumption"].bulk_upsert(assumptions)
+
+        result = await services["financial_model"].compute(base_set.id)
+
+        dcf_summary = (
+            f"- IRR: {result.irr:.3%}\n"
+            f"- Equity Multiple: {result.equity_multiple:.3f}x\n"
+            f"- Cash-on-Cash (Yr 1): {result.cash_on_cash_yr1:.3%}\n"
+            f"- Cap Rate on Cost: {result.cap_rate_on_cost:.3%}\n"
+            f"- Cash Flows (equity, yr1-yr5+exit): {[f'{cf:,.0f}' for cf in result.cash_flows]}"
+        )
+        print(f"\n  DCF summary:\n{dcf_summary}")
+
+        om_context = (
+            "Lund Pointe Apartments, Port Orchard WA. 25-unit multifamily, built 1995.\n"
+            f"Purchase price: ${OM_OFFERING_PRICE:,.0f}. "
+            f"Pro forma NOI: ${OM_PRO_FORMA_NOI:,.0f}. "
+            f"Gross revenue: ${OM_GROSS_REVENUE:,.0f}. Vacancy: {OM_VACANCY_RATE:.0%}.\n"
+            f"Comp cap rates: 5.10%–6.29% (avg {OM_COMP_CAP_RATE_AVG:.2%}). "
+            f"Exit cap rate used: {OM_COMP_CAP_RATE_AVG:.2%}. LTV: 70%. 5-year hold."
+        )
+
+        judgment = await _llm_judge(
+            context=om_context,
+            data_to_evaluate=f"DCF model outputs:\n{dcf_summary}",
+            criteria=(
+                "Evaluate whether these DCF outputs are financially plausible for this property. Check:\n"
+                "1. IRR is in the 5%–25% range for a stabilised multifamily at 70% LTV in WA\n"
+                "2. Equity multiple is between 1.1x and 2.5x for a 5-year hold\n"
+                "3. Cash-on-cash Yr 1 is positive (property covers debt service)\n"
+                "4. Cap rate on cost is close to the property's implied cap rate (~5.5%)\n"
+                "5. Cash flow signs make sense: negative initial equity outflow, positive operating years, "
+                "large positive terminal year (exit proceeds)\n"
+                "Be strict on sign conventions and order-of-magnitude errors. "
+                "Minor rounding is fine."
+            ),
+        )
+
+        print(f"\n  Judge verdict: {judgment['verdict']}")
+        print(f"  Reasoning: {judgment['reasoning']}")
+        if judgment.get("issues"):
+            print(f"  Issues: {judgment['issues']}")
+
+        assert judgment["verdict"] == "PASS", (
+            f"LLM judge FAILED DCF quality.\n"
+            f"Reasoning: {judgment['reasoning']}\n"
+            f"Issues: {judgment.get('issues', [])}"
+        )
+
     async def test_judge_rejects_bad_benchmarks(self, services, repos):
         """Verify the LLM judge correctly FAILs when given nonsensical benchmarks."""
         _skip_without_api_key()
