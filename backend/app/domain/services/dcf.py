@@ -1,8 +1,11 @@
 """Pure Python DCF engine. Zero external dependencies."""
 from __future__ import annotations
+import logging
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -71,22 +74,40 @@ def _bisect_irr(
     npv_low = _npv(cash_flows, low)
     npv_high = _npv(cash_flows, high)
     if npv_low * npv_high > 0:
-        return None  # No sign change
+        logger.debug(
+            "IRR bisection: no sign change — NPV(%.2f)=%.2f, NPV(%.2f)=%.2f; "
+            "cash_flows=%s",
+            low, npv_low, high, npv_high,
+            [f"{cf:,.0f}" for cf in cash_flows],
+        )
+        return None
     for _ in range(max_iter):
         mid = (low + high) / 2
         npv_mid = _npv(cash_flows, mid)
         if abs(npv_mid) < tol or (high - low) / 2 < tol:
+            logger.debug("IRR bisection converged: %.4f%%", mid * 100)
             return mid
         if npv_low * npv_mid < 0:
             high = mid
         else:
             low = mid
             npv_low = npv_mid
-    return (low + high) / 2
+    result = (low + high) / 2
+    logger.debug("IRR bisection max_iter reached, estimate: %.4f%%", result * 100)
+    return result
 
 
 def compute_projection(params: ProjectionParams) -> ProjectionResult:
     """Compute DCF projection and return metrics."""
+    logger.debug(
+        "DCF inputs — price=%.0f, ltv=%.2f, gross_rev=%.0f, occupancy=%.3f, "
+        "exp_ratio=%.3f, capex=%.0f, exit_cap=%.4f, periods=%d, "
+        "sofr=%.4f, spread=%.4f",
+        params.purchase_price, params.ltv, params.base_gross_revenue,
+        params.base_occupancy_rate, params.base_expense_ratio,
+        params.base_capex_per_unit, params.exit_cap_rate, params.periods,
+        params.sofr_rate, params.spread,
+    )
     equity = params.purchase_price * (1 - params.ltv)
     loan = params.purchase_price * params.ltv
     total_cost = params.purchase_price + params.closing_costs + params.acquisition_fee
