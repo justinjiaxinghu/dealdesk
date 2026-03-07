@@ -206,3 +206,43 @@ export interface SensitivityResponse {
   x_axis: SensitivityAxis;
   y_axis: SensitivityAxis;
 }
+
+// --- Exploration ---
+
+export interface ExplorationSession {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  saved: boolean;
+  created_at: string;
+}
+
+// --- Chat ---
+
+export interface ChatSession {
+  id: string;
+  exploration_session_id: string;
+  title: string;
+  connectors: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  tool_calls: Record<string, unknown>[] | null;
+  created_at: string;
+}
+
+// --- Snapshot ---
+
+export interface Snapshot {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  session_data: Record<string, unknown>;
+  created_at: string;
+}
