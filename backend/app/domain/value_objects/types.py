@@ -1,6 +1,8 @@
 # backend/app/domain/value_objects/types.py
 from dataclasses import dataclass, field
 
+from app.domain.value_objects.enums import ProcessingStepStatus
+
 
 @dataclass(frozen=True)
 class PageText:
@@ -55,7 +57,7 @@ class BenchmarkSuggestion:
 @dataclass(frozen=True)
 class ProcessingStep:
     name: str
-    status: str  # "pending", "in_progress", "complete", "failed"
+    status: ProcessingStepStatus
     detail: str = ""
 
 
@@ -100,3 +102,12 @@ class FieldValidationResult:
     sources: list[ValidationSource]
     confidence: float
     search_steps: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    title: str
+    url: str
+    snippet: str
+    source: str  # connector name that produced this result
+    raw_data: dict | None = None  # additional structured data if available
