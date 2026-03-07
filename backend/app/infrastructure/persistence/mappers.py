@@ -10,12 +10,19 @@ from app.domain.entities.document import Document
 from app.domain.entities.export import Export
 from app.domain.entities.extraction import ExtractedField, MarketTable
 from app.domain.entities.field_validation import FieldValidation
+from app.domain.entities.exploration import ExplorationSession
+from app.domain.entities.chat import ChatSession, ChatMessage
+from app.domain.entities.snapshot import Snapshot
 from app.domain.value_objects.enums import (
     AssumptionGroup,
+    ChatRole,
     CompSource,
+    ConnectorType,
     DocumentType,
     ExportType,
+    ForecastMethod,
     ProcessingStatus,
+    ProcessingStepStatus,
     PropertyType,
     SourceType,
     ValidationStatus,
@@ -25,14 +32,18 @@ from app.domain.entities.historical_financial import HistoricalFinancial
 from app.infrastructure.persistence.models import (
     AssumptionModel,
     AssumptionSetModel,
+    ChatMessageModel,
+    ChatSessionModel,
     CompModel,
     DealModel,
     DocumentModel,
+    ExplorationSessionModel,
     ExportModel,
     ExtractedFieldModel,
     FieldValidationModel,
     HistoricalFinancialModel,
     MarketTableModel,
+    SnapshotModel,
 )
 
 
@@ -88,7 +99,7 @@ def _dicts_to_steps(data: list[dict] | None) -> list[ProcessingStep]:
     if not data:
         return []
     return [
-        ProcessingStep(name=d["name"], status=d["status"], detail=d.get("detail", ""))
+        ProcessingStep(name=d["name"], status=ProcessingStepStatus(d["status"]), detail=d.get("detail", ""))
         for d in data
     ]
 
@@ -228,7 +239,7 @@ def assumption_to_entity(model: AssumptionModel) -> Assumption:
         source_ref=model.source_ref,
         notes=model.notes,
         group=AssumptionGroup(model.group) if model.group else None,
-        forecast_method=model.forecast_method,
+        forecast_method=ForecastMethod(model.forecast_method) if model.forecast_method else None,
         forecast_params=model.forecast_params,
         updated_at=model.updated_at,
     )
@@ -247,7 +258,7 @@ def assumption_to_model(entity: Assumption) -> AssumptionModel:
         source_ref=entity.source_ref,
         notes=entity.notes,
         group=entity.group.value if entity.group else None,
-        forecast_method=entity.forecast_method,
+        forecast_method=entity.forecast_method.value if entity.forecast_method else None,
         forecast_params=entity.forecast_params,
         updated_at=entity.updated_at,
     )
@@ -404,4 +415,108 @@ def historical_financial_to_entity(model: HistoricalFinancialModel) -> Historica
         unit=model.unit,
         source=model.source,
         created_at=model.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# ExplorationSession
+# ---------------------------------------------------------------------------
+
+
+def exploration_session_to_entity(model: ExplorationSessionModel) -> ExplorationSession:
+    return ExplorationSession(
+        id=model.id,
+        deal_id=model.deal_id,
+        name=model.name,
+        saved=model.saved,
+        created_at=model.created_at,
+    )
+
+
+def exploration_session_to_model(entity: ExplorationSession) -> ExplorationSessionModel:
+    return ExplorationSessionModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        name=entity.name,
+        saved=entity.saved,
+        created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# ChatSession
+# ---------------------------------------------------------------------------
+
+
+def chat_session_to_entity(model: ChatSessionModel) -> ChatSession:
+    return ChatSession(
+        id=model.id,
+        exploration_session_id=model.exploration_session_id,
+        title=model.title,
+        connectors=[ConnectorType(c) for c in (model.connectors or [])],
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def chat_session_to_model(entity: ChatSession) -> ChatSessionModel:
+    return ChatSessionModel(
+        id=entity.id,
+        exploration_session_id=entity.exploration_session_id,
+        title=entity.title,
+        connectors=[c.value for c in entity.connectors],
+        created_at=entity.created_at,
+        updated_at=entity.updated_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# ChatMessage
+# ---------------------------------------------------------------------------
+
+
+def chat_message_to_entity(model: ChatMessageModel) -> ChatMessage:
+    return ChatMessage(
+        id=model.id,
+        session_id=model.session_id,
+        role=ChatRole(model.role),
+        content=model.content,
+        tool_calls=model.tool_calls,
+        created_at=model.created_at,
+    )
+
+
+def chat_message_to_model(entity: ChatMessage) -> ChatMessageModel:
+    return ChatMessageModel(
+        id=entity.id,
+        session_id=entity.session_id,
+        role=entity.role.value,
+        content=entity.content,
+        tool_calls=entity.tool_calls,
+        created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Snapshot
+# ---------------------------------------------------------------------------
+
+
+def snapshot_to_entity(model: SnapshotModel) -> Snapshot:
+    return Snapshot(
+        id=model.id,
+        deal_id=model.deal_id,
+        name=model.name,
+        session_data=model.session_data or {},
+        created_at=model.created_at,
+    )
+
+
+def snapshot_to_model(entity: Snapshot) -> SnapshotModel:
+    return SnapshotModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        name=entity.name,
+        session_data=entity.session_data,
+        created_at=entity.created_at,
     )
