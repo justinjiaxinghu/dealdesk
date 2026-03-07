@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
+    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -356,3 +358,85 @@ class HistoricalFinancialModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     deal = relationship("DealModel", back_populates="historical_financials")
+
+
+# ---------------------------------------------------------------------------
+# Exploration Sessions
+# ---------------------------------------------------------------------------
+
+
+class ExplorationSessionModel(Base):
+    __tablename__ = "exploration_sessions"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    saved = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="exploration_sessions")
+    chat_sessions = relationship(
+        "ChatSessionModel", back_populates="exploration_session", lazy="selectin"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chat Sessions
+# ---------------------------------------------------------------------------
+
+
+class ChatSessionModel(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(UUIDType, primary_key=True)
+    exploration_session_id = Column(
+        UUIDType, ForeignKey("exploration_sessions.id"), nullable=False, index=True
+    )
+    title = Column(String, nullable=False)
+    connectors = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    exploration_session = relationship(
+        "ExplorationSessionModel", back_populates="chat_sessions"
+    )
+    messages = relationship(
+        "ChatMessageModel", back_populates="chat_session", lazy="selectin"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chat Messages
+# ---------------------------------------------------------------------------
+
+
+class ChatMessageModel(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(UUIDType, primary_key=True)
+    session_id = Column(
+        UUIDType, ForeignKey("chat_sessions.id"), nullable=False, index=True
+    )
+    role = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    tool_calls = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+    chat_session = relationship("ChatSessionModel", back_populates="messages")
+
+
+# ---------------------------------------------------------------------------
+# Snapshots
+# ---------------------------------------------------------------------------
+
+
+class SnapshotModel(Base):
+    __tablename__ = "snapshots"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    session_data = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="snapshots")
