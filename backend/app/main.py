@@ -12,6 +12,9 @@ from app.api.v1.exports import router as exports_router
 from app.api.v1.financial_model import router as financial_model_router
 from app.api.v1.historical_financials import router as historical_financials_router
 from app.api.v1.quick_extract import router as quick_extract_router
+from app.api.v1.chat import router as chat_router
+from app.api.v1.explorations import router as explorations_router
+from app.api.v1.snapshots import router as snapshots_router
 from app.api.v1.validation import router as validation_router
 from app.config import settings
 from app.infrastructure.persistence.database import engine
@@ -52,6 +55,9 @@ app.include_router(validation_router, prefix="/v1")
 app.include_router(comps_router, prefix="/v1")
 app.include_router(financial_model_router, prefix="/v1")
 app.include_router(historical_financials_router, prefix="/v1")
+app.include_router(explorations_router, prefix="/v1")
+app.include_router(chat_router, prefix="/v1")
+app.include_router(snapshots_router, prefix="/v1")
 
 
 @app.get("/health")
