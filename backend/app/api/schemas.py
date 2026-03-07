@@ -329,3 +329,88 @@ class CompResponse(BaseModel):
     opex_per_unit: float | None = None
     fetched_at: datetime
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Exploration
+# ---------------------------------------------------------------------------
+
+
+class CreateExplorationRequest(BaseModel):
+    name: str = "Untitled Exploration"
+
+
+class ExplorationSessionResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    saved: bool
+    created_at: datetime
+
+
+class UpdateExplorationRequest(BaseModel):
+    name: str | None = None
+    saved: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Chat Sessions
+# ---------------------------------------------------------------------------
+
+
+class CreateChatSessionRequest(BaseModel):
+    title: str = "New Search"
+    connectors: list[str] = []
+
+
+class ChatSessionResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    exploration_session_id: UUID
+    title: str
+    connectors: list[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+class UpdateChatSessionRequest(BaseModel):
+    title: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Chat Messages
+# ---------------------------------------------------------------------------
+
+
+class SendMessageRequest(BaseModel):
+    content: str
+    connectors: list[str] = []
+
+
+class ChatMessageResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    session_id: UUID
+    role: str
+    content: str
+    tool_calls: list[dict] | None = None
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Snapshots
+# ---------------------------------------------------------------------------
+
+
+class CreateSnapshotRequest(BaseModel):
+    name: str
+
+
+class SnapshotResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    session_data: dict
+    created_at: datetime
