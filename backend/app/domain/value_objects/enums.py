@@ -53,9 +53,46 @@ class CompSource(StrEnum):
     TAVILY = "tavily"
 
 
+class HistoricalFinancialSource(StrEnum):
+    EXTRACTED = "extracted"
+    MANUAL = "manual"
+
+
 class AssumptionGroup(StrEnum):
     MODEL_STRUCTURE = "model_structure"
     TRANSACTION = "transaction"
     OPERATING = "operating"
     FINANCING = "financing"
     RETURN_TARGETS = "return_targets"
+
+
+class ForecastMethod(StrEnum):
+    HISTORICAL = "historical"
+    STEP_CHANGE = "step_change"
+    GRADUAL_RAMP = "gradual_ramp"
+
+
+class Cadence(StrEnum):
+    ANNUAL = "annual"
+    QUARTERLY = "quarterly"
+
+
+class ProcessingStepStatus(StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+
+class ChatRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+class ConnectorType(StrEnum):
+    TAVILY = "tavily"
+    COSTAR = "costar"
+    COMPSTACK = "compstack"
+    LOOPNET = "loopnet"
+    REA_VISTA = "rea_vista"
