@@ -102,7 +102,7 @@ export function PropertyModal({
   // Build subject deal lookup for "vs Subject" column
   const subjectValues: Record<string, unknown> = {};
   if (subjectDeal) {
-    const d = subjectDeal as Record<string, unknown>;
+    const d = subjectDeal as unknown as Record<string, unknown>;
     for (const k of keys) {
       if (d[k] != null) subjectValues[k] = d[k];
     }
