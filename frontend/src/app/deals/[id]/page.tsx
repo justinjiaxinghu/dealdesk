@@ -376,7 +376,7 @@ export default function DealWorkspacePage({
               onSelectProperty={handleSelectProperty}
             />
           ) : (
-            <ChatThread messages={messages} loading={sending} />
+            <ChatThread messages={messages} loading={sending || searchLoading} />
           )}
         </div>
       </main>

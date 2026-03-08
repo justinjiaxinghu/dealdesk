@@ -18,7 +18,10 @@ export function ChatThread({ messages, loading = false }: ChatThreadProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, loading]);
 
-  const visibleMessages = messages.filter((m) => m.role !== "tool");
+  // Filter out tool messages and empty assistant messages (tool-call intermediaries)
+  const visibleMessages = messages.filter(
+    (m) => m.role !== "tool" && !(m.role === "assistant" && (!m.content || m.content.trim() === ""))
+  );
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -38,13 +41,15 @@ export function ChatThread({ messages, loading = false }: ChatThreadProps) {
 
       {loading && (
         <div className="flex justify-start">
-          <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-2.5">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:0ms]" />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:150ms]" />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:300ms]" />
-              <span className="ml-2 text-sm text-muted-foreground">
-                Thinking...
+          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:300ms]" />
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Searching and analyzing...
               </span>
             </div>
           </div>
