@@ -158,10 +158,15 @@ class ChatService:
                     "tool_call_id": (msg.tool_calls or [{}])[0].get("id", ""),
                 })
             elif msg.role == ChatRole.ASSISTANT and msg.tool_calls:
+                # Ensure each tool_call has "type": "function" (required by OpenAI API)
+                tool_calls = [
+                    {**tc, "type": tc.get("type", "function")}
+                    for tc in msg.tool_calls
+                ]
                 messages.append({
                     "role": "assistant",
                     "content": msg.content or None,
-                    "tool_calls": msg.tool_calls,
+                    "tool_calls": tool_calls,
                 })
             else:
                 messages.append({
@@ -184,6 +189,7 @@ class ChatService:
                 tool_calls_data = [
                     {
                         "id": tc.id,
+                        "type": "function",
                         "function": {
                             "name": tc.function.name,
                             "arguments": tc.function.arguments,
