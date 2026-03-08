@@ -171,9 +171,15 @@ async def send_message(
     service: Annotated[ChatService, Depends(get_chat_service)],
 ) -> list[ChatMessageResponse]:
     connectors = [ConnectorType(c) for c in body.connectors]
-    new_messages = await service.send_message(
-        session_id=session_id,
-        user_content=body.content,
-        connectors=connectors,
-    )
+    try:
+        new_messages = await service.send_message(
+            session_id=session_id,
+            user_content=body.content,
+            connectors=connectors,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
     return [ChatMessageResponse.model_validate(m) for m in new_messages]

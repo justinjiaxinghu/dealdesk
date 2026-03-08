@@ -16,6 +16,9 @@ export const explorationService = {
 
   list: () => apiFetch<ExplorationSession[]>("/explorations"),
 
+  listByDeal: (dealId: string) =>
+    apiFetch<ExplorationSession[]>(`/deals/${dealId}/explorations`),
+
   get: (id: string) => apiFetch<ExplorationSession>(`/explorations/${id}`),
 
   update: (id: string, data: { name?: string; saved?: boolean }) =>

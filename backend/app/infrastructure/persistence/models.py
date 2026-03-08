@@ -401,7 +401,10 @@ class ChatSessionModel(Base):
         "ExplorationSessionModel", back_populates="chat_sessions"
     )
     messages = relationship(
-        "ChatMessageModel", back_populates="chat_session", lazy="selectin"
+        "ChatMessageModel",
+        back_populates="chat_session",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
 

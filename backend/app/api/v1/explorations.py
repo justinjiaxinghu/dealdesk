@@ -69,6 +69,21 @@ async def list_explorations(
 
 
 @router.get(
+    "/deals/{deal_id}/explorations",
+    response_model=list[ExplorationSessionResponse],
+)
+async def list_deal_explorations(
+    deal_id: UUID,
+    repo: Annotated[
+        SqlAlchemyExplorationSessionRepository,
+        Depends(get_exploration_session_repo),
+    ],
+) -> list[ExplorationSessionResponse]:
+    explorations = await repo.list_by_deal_id(deal_id)
+    return [ExplorationSessionResponse.model_validate(e) for e in explorations]
+
+
+@router.get(
     "/explorations/{exploration_id}",
     response_model=ExplorationSessionResponse,
 )

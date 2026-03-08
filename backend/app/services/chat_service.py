@@ -46,23 +46,32 @@ TOOL_DEFINITIONS = [
     },
 ]
 
+PROPERTY_FORMAT_INSTRUCTIONS = """
+When you find comparable properties or listings, you MUST include a fenced JSON block tagged ```properties at the end of your response with structured data for each property. Example:
+
+```properties
+[
+  {{"address": "123 Main St, City, ST", "property_type": "Multifamily", "cap_rate": 0.055, "rent_per_unit": 1250, "sale_price": 5200000, "noi": 286000, "year_built": 1998, "unit_count": 48, "square_feet": 42000, "occupancy_rate": 0.94, "vacancy_rate": 0.06, "expense_ratio": 0.45, "opex_per_unit": 4200, "price_per_unit": 108333, "price_per_sqft": 124, "source_url": "https://example.com/listing"}},
+  {{"address": "456 Oak Ave, City, ST", "property_type": "Multifamily", "cap_rate": 0.062}}
+]
+```
+
+Available fields: address, property_type, cap_rate, noi, sale_price, rent_per_unit, rent_per_sqft, occupancy_rate, vacancy_rate, expense_ratio, opex_per_unit, price_per_unit, price_per_sqft, capex, capex_per_unit, unit_count, square_feet, year_built, source_url, notes.
+Include as many fields as you have data for. Numeric values should be raw numbers (rates as decimals like 0.055, not 5.5%). Always include at least address and property_type. This block must be valid JSON."""
+
 SYSTEM_PROMPT_DEAL = """You are a real estate market intelligence assistant analyzing a specific deal.
 
 Deal Context:
 {deal_context}
 
 All research should be contextualized against this subject property. When returning property results, always note how they compare to the subject deal. Use the web_search tool to find market data, comparable properties, and validate assumptions.
-
-When presenting properties you find, always include: address, property type, key financial metrics (cap rate, rent/sqft, sale price, NOI) where available, and how they compare to the subject deal.
-
+""" + PROPERTY_FORMAT_INSTRUCTIONS + """
 Respond in markdown format."""
 
 SYSTEM_PROMPT_FREE = """You are a real estate market intelligence assistant.
 
 The user is exploring the market without a specific deal. Help them research properties, find comps, understand market trends, and discover opportunities. Use the web_search tool to find relevant data.
-
-When presenting properties you find, always include: address, property type, key financial metrics (cap rate, rent/sqft, sale price, NOI) where available.
-
+""" + PROPERTY_FORMAT_INSTRUCTIONS + """
 Respond in markdown format."""
 
 

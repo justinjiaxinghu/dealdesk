@@ -26,7 +26,7 @@ export default function ExplorePage() {
   }, []);
 
   const { sessions, refresh } = useExploration(explorationId);
-  const { messages, sending, sendMessage } = useChat(activeTabId);
+  const { messages, setMessages, sending, sendMessage } = useChat(activeTabId);
 
   // Search creates a new session, sends the message, and switches to it
   const handleSearch = useCallback(
@@ -41,15 +41,18 @@ export default function ExplorePage() {
         );
         await refresh();
         setActiveTabId(session.id);
-        await sendMessage(query, connectors);
-        await refresh();
+        // Send message and fetch results for the new session directly
+        // (don't rely on sendMessage from useChat which has stale sessionId)
+        await chatService.sendMessage(session.id, query, connectors);
+        const msgs = await chatService.listMessages(session.id);
+        setMessages(msgs);
       } catch (err) {
         console.error("Search failed", err);
       } finally {
         setSearchLoading(false);
       }
     },
-    [explorationId, refresh, sendMessage]
+    [explorationId, refresh, setMessages]
   );
 
   // Tab management
@@ -80,10 +83,10 @@ export default function ExplorePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+    <div className="h-screen flex flex-col bg-background">
+      <div className="max-w-7xl w-full mx-auto px-6 pt-8 pb-2 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <div>
+        <div className="mb-4">
           <h1 className="text-2xl font-bold tracking-tight">
             Market Exploration
           </h1>
@@ -92,9 +95,6 @@ export default function ExplorePage() {
             deal context.
           </p>
         </div>
-
-        {/* Search bar */}
-        <SearchBar onSearch={handleSearch} loading={searchLoading || sending} />
 
         {/* Session tabs */}
         <SessionTabs
@@ -106,7 +106,7 @@ export default function ExplorePage() {
         />
 
         {/* Active tab content */}
-        <div className="min-h-[400px]">
+        <div className="flex-1 overflow-y-auto mt-2">
           {activeTabId === null ? (
             <OverviewTab
               deal={null}
@@ -117,6 +117,9 @@ export default function ExplorePage() {
             <ChatThread messages={messages} loading={sending || searchLoading} />
           )}
         </div>
+
+        {/* Chat input at bottom */}
+        <SearchBar onSearch={handleSearch} loading={searchLoading || sending} />
       </div>
     </div>
   );

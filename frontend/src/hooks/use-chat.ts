@@ -42,5 +42,5 @@ export function useChat(sessionId: string | null) {
     [sessionId]
   );
 
-  return { messages, loading, sending, sendMessage, refresh: loadMessages };
+  return { messages, setMessages, loading, sending, sendMessage, refresh: loadMessages };
 }

@@ -11,6 +11,7 @@ import type {
 } from "@/interfaces/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ValidationDetailModal } from "@/components/validation/validation-detail-modal";
 
 interface DealSidebarProps {
   deal: Deal | null;
@@ -143,6 +144,9 @@ export function DealSidebar({
   loading = false,
   onExport,
 }: DealSidebarProps) {
+  const [selectedValidation, setSelectedValidation] =
+    useState<FieldValidation | null>(null);
+
   if (loading && !deal) {
     return (
       <aside className="w-[350px] shrink-0 border-r bg-card overflow-y-auto">
@@ -174,8 +178,10 @@ export function DealSidebar({
   const hasAssumptions = assumptions.length > 0;
   const hasFinancials = historicalFinancials.length > 0;
 
-  // Get first document for PDF preview
   const firstDoc = documents[0];
+  const pdfUrl = firstDoc
+    ? `${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000/v1"}/deals/${deal.id}/documents/${firstDoc.id}/pdf`
+    : null;
 
   // Group assumptions by group field
   const assumptionGroups = assumptions.reduce<Record<string, Assumption[]>>(
@@ -190,10 +196,14 @@ export function DealSidebar({
 
   return (
     <aside className="w-[350px] shrink-0 border-r bg-card overflow-y-auto flex flex-col">
-      {/* Deal Summary */}
-      <SidebarSection title="Deal Summary" status={deal ? "done" : null}>
+      {/* Deal Summary - always visible, not collapsible */}
+      <div className="px-4 py-4 border-b">
         <div className="space-y-1.5 text-sm">
-          <div className="font-semibold">{deal.name}</div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-semibold text-base">{deal.name}</div>
+            {isProcessing && <Spinner />}
+            {!isProcessing && hasFields && <CheckIcon />}
+          </div>
           <div className="text-muted-foreground">{deal.address}</div>
           <div className="text-muted-foreground">
             {deal.city}, {deal.state}
@@ -206,30 +216,37 @@ export function DealSidebar({
               </span>
             )}
           </div>
+          {/* View PDF button */}
+          {pdfUrl && (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
+              </svg>
+              View PDF
+              {firstDoc && (
+                <span className="text-muted-foreground">
+                  ({firstDoc.original_filename})
+                </span>
+              )}
+            </a>
+          )}
         </div>
-      </SidebarSection>
-
-      {/* PDF Preview */}
-      {firstDoc && (
-        <SidebarSection
-          title="PDF Preview"
-          defaultExpanded={false}
-          status={
-            isProcessing ? "loading" : firstDoc ? "done" : null
-          }
-        >
-          <div className="rounded-md border overflow-hidden bg-muted/30 h-[300px]">
-            <iframe
-              src={`${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000/v1"}/deals/${deal.id}/documents/${firstDoc.id}/pdf`}
-              className="w-full h-full"
-              title={firstDoc.original_filename}
-            />
-          </div>
-          <div className="text-xs text-muted-foreground mt-1 truncate">
-            {firstDoc.original_filename}
-          </div>
-        </SidebarSection>
-      )}
+      </div>
 
       {/* Extraction */}
       <SidebarSection
@@ -277,9 +294,10 @@ export function DealSidebar({
         {validations.length > 0 ? (
           <div className="space-y-1.5">
             {validations.map((v) => (
-              <div
+              <button
                 key={v.id}
-                className="flex items-center justify-between text-xs gap-2"
+                className="flex items-center justify-between text-xs gap-2 w-full text-left rounded px-1 py-0.5 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => setSelectedValidation(v)}
               >
                 <span className="truncate">
                   {formatFieldKey(v.field_key)}
@@ -292,7 +310,7 @@ export function DealSidebar({
                 >
                   {v.status.replace(/_/g, " ")}
                 </Badge>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -389,6 +407,15 @@ export function DealSidebar({
           Export XLSX
         </Button>
       </div>
+
+      {/* Validation detail modal */}
+      <ValidationDetailModal
+        validation={selectedValidation}
+        open={selectedValidation !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedValidation(null);
+        }}
+      />
     </aside>
   );
 }

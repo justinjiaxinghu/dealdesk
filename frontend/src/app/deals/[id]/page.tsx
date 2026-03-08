@@ -59,18 +59,16 @@ export default function DealWorkspacePage({
 
     async function initExploration() {
       try {
-        // Try to find existing explorations for this deal by listing all and filtering
-        const allExplorations = await explorationService.list();
-        const existing = allExplorations.find((e) => e.deal_id === id);
-        if (existing) {
-          setExplorationId(existing.id);
+        // Find existing explorations for this deal
+        const dealExplorations = await explorationService.listByDeal(id);
+        if (dealExplorations.length > 0) {
+          setExplorationId(dealExplorations[0].id);
         } else {
           const newExploration = await explorationService.createForDeal(id);
           setExplorationId(newExploration.id);
         }
       } catch (err) {
         console.error("Failed to initialize exploration", err);
-        // Try creating fresh if listing failed
         try {
           const newExploration = await explorationService.createForDeal(id);
           setExplorationId(newExploration.id);
@@ -85,7 +83,7 @@ export default function DealWorkspacePage({
 
   const { sessions, refresh: refreshExploration } =
     useExploration(explorationId);
-  const { messages, sending, sendMessage, refresh: refreshMessages } =
+  const { messages, setMessages, sending, sendMessage, refresh: refreshMessages } =
     useChat(activeTabId);
 
   // --- Auto-pipeline: chain extraction polling -> benchmarks -> validation -> comps ---
@@ -233,10 +231,12 @@ export default function DealWorkspacePage({
         await refreshExploration();
         setActiveTabId(session.id);
 
-        // Send the message
+        // Send the message and wait for completion
         await chatService.sendMessage(session.id, query, connectors);
-        // Refresh messages for the new active session
-        await refreshMessages();
+        // Fetch messages for the NEW session (don't use refreshMessages which
+        // relies on the stale activeTabId from the useChat hook closure)
+        const msgs = await chatService.listMessages(session.id);
+        setMessages(msgs);
       } catch (err) {
         console.error("Search failed", err);
         setActionError(
@@ -246,7 +246,7 @@ export default function DealWorkspacePage({
         setSearchLoading(false);
       }
     },
-    [explorationId, refreshExploration, refreshMessages]
+    [explorationId, refreshExploration]
   );
 
   const handleNewTab = useCallback(async () => {
@@ -351,13 +351,8 @@ export default function DealWorkspacePage({
           </div>
         )}
 
-        {/* Search bar */}
-        <div className="px-6 pt-4 pb-2">
-          <SearchBar onSearch={handleSearch} loading={searchLoading} />
-        </div>
-
         {/* Session tabs */}
-        <div className="px-6">
+        <div className="px-6 pt-3">
           <SessionTabs
             sessions={sessions}
             activeTabId={activeTabId}
@@ -379,6 +374,9 @@ export default function DealWorkspacePage({
             <ChatThread messages={messages} loading={sending || searchLoading} />
           )}
         </div>
+
+        {/* Chat input at bottom */}
+        <SearchBar onSearch={handleSearch} loading={searchLoading} />
       </main>
     </div>
   );

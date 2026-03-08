@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 const CONNECTORS = [
@@ -21,33 +19,52 @@ interface SearchBarProps {
 export function SearchBar({ onSearch, loading = false }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set(["tavily"]));
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function toggleConnector(id: string) {
     const connector = CONNECTORS.find((c) => c.id === id);
     if (!connector?.enabled) return;
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit() {
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed || loading) return;
     onSearch(trimmed, Array.from(selected));
+    setQuery("");
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }
+
+  function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setQuery(e.target.value);
+    // Auto-resize
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 150) + "px";
+  }
+
+  const canSend = query.trim().length > 0 && !loading;
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="border-t bg-background px-4 py-3">
       {/* Connector chips */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
           Sources:
         </span>
         {CONNECTORS.map((c) => (
@@ -60,7 +77,7 @@ export function SearchBar({ onSearch, loading = false }: SearchBarProps) {
                     ? "default"
                     : "outline"
               }
-              className={`cursor-pointer select-none text-xs ${
+              className={`cursor-pointer select-none text-[10px] px-1.5 py-0 ${
                 !c.enabled
                   ? "opacity-40 cursor-not-allowed"
                   : "hover:opacity-80"
@@ -78,45 +95,63 @@ export function SearchBar({ onSearch, loading = false }: SearchBarProps) {
         ))}
       </div>
 
-      {/* Input + send */}
-      <div className="flex items-center gap-2">
-        <Input
-          type="text"
-          placeholder="Search for comparable properties, market data..."
+      {/* Input area with send button */}
+      <div className="relative flex items-end gap-2">
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          placeholder="Ask about comparable properties, market data..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
           disabled={loading}
-          className="flex-1"
+          className="flex-1 resize-none rounded-xl border border-input bg-muted/30 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:opacity-50"
+          style={{ minHeight: "42px", maxHeight: "150px" }}
         />
-        <Button type="submit" disabled={loading || !query.trim()}>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSend}
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-foreground text-background shrink-0 transition-opacity disabled:opacity-30 hover:opacity-80 disabled:cursor-not-allowed mb-0.5"
+          aria-label="Send message"
+        >
           {loading ? (
-            <span className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Searching...
-            </span>
+            <svg
+              className="w-4 h-4 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
           ) : (
-            "Search"
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 10l7-7m0 0l7 7m-7-7v18"
+              />
+            </svg>
           )}
-        </Button>
+        </button>
       </div>
-    </form>
+    </div>
   );
 }
