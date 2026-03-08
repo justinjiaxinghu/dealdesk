@@ -86,6 +86,7 @@ from app.infrastructure.persistence.historical_financial_repo import (
 from app.infrastructure.persistence.exploration_repo import SqlAlchemyExplorationSessionRepository
 from app.infrastructure.persistence.chat_repo import SqlAlchemyChatSessionRepository, SqlAlchemyChatMessageRepository
 from app.infrastructure.persistence.snapshot_repo import SqlAlchemySnapshotRepository
+from app.infrastructure.persistence.dataset_repo import SqlAlchemyDatasetRepository
 
 
 def get_deal_repo(session: DbSession) -> SqlAlchemyDealRepository:
@@ -142,6 +143,10 @@ def get_chat_message_repo(session: DbSession) -> SqlAlchemyChatMessageRepository
 
 def get_snapshot_repo(session: DbSession) -> SqlAlchemySnapshotRepository:
     return SqlAlchemySnapshotRepository(session)
+
+
+def get_dataset_repo(session: DbSession) -> SqlAlchemyDatasetRepository:
+    return SqlAlchemyDatasetRepository(session)
 
 
 # ---------------------------------------------------------------------------

@@ -1,20 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/interfaces/api";
 import { chatService } from "@/services/chat.service";
 
 export function useChat(sessionId: string | null) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessagesInternal] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const skipNextLoad = useRef(false);
+
+  // External setMessages that also skips the next auto-load
+  const setMessages = useCallback((msgs: ChatMessage[]) => {
+    skipNextLoad.current = true;
+    setMessagesInternal(msgs);
+  }, []);
 
   const loadMessages = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
     try {
       const msgs = await chatService.listMessages(sessionId);
-      setMessages(msgs);
+      setMessagesInternal(msgs);
     } catch (err) {
       console.error("Failed to load messages", err);
     } finally {
@@ -23,7 +30,12 @@ export function useChat(sessionId: string | null) {
   }, [sessionId]);
 
   useEffect(() => {
-    if (sessionId) loadMessages();
+    if (!sessionId) return;
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+      return;
+    }
+    loadMessages();
   }, [sessionId, loadMessages]);
 
   const sendMessage = useCallback(
@@ -32,7 +44,7 @@ export function useChat(sessionId: string | null) {
       setSending(true);
       try {
         const newMessages = await chatService.sendMessage(sessionId, content, connectors);
-        setMessages((prev) => [...prev, ...newMessages]);
+        setMessagesInternal((prev) => [...prev, ...newMessages]);
       } catch (err) {
         console.error("Failed to send message", err);
       } finally {

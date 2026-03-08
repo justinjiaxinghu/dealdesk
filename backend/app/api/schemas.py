@@ -414,3 +414,34 @@ class SnapshotResponse(BaseModel):
     name: str
     session_data: dict
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+
+
+class CreateDatasetRequest(BaseModel):
+    name: str
+    deal_id: UUID | None = None
+    properties: list[dict] = []
+
+
+class UpdateDatasetRequest(BaseModel):
+    name: str | None = None
+    deal_id: UUID | None = None
+    properties: list[dict] | None = None
+
+
+class AddPropertiesRequest(BaseModel):
+    properties: list[dict]
+
+
+class DatasetResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    properties: list[dict]
+    created_at: datetime
+    updated_at: datetime

@@ -1,8 +1,12 @@
 # backend/app/main.py
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 from app.api.v1.assumptions import router as assumptions_router
 from app.api.v1.comps import router as comps_router
@@ -15,6 +19,7 @@ from app.api.v1.quick_extract import router as quick_extract_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.explorations import router as explorations_router
 from app.api.v1.snapshots import router as snapshots_router
+from app.api.v1.datasets import router as datasets_router
 from app.api.v1.validation import router as validation_router
 from app.config import settings
 from app.infrastructure.persistence.database import engine
@@ -58,6 +63,16 @@ app.include_router(historical_financials_router, prefix="/v1")
 app.include_router(explorations_router, prefix="/v1")
 app.include_router(chat_router, prefix="/v1")
 app.include_router(snapshots_router, prefix="/v1")
+app.include_router(datasets_router, prefix="/v1")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
 
 
 @app.get("/health")

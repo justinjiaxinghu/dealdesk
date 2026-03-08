@@ -443,3 +443,21 @@ class SnapshotModel(Base):
     created_at = Column(DateTime, nullable=False)
 
     deal = relationship("DealModel", backref="snapshots")
+
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+
+
+class DatasetModel(Base):
+    __tablename__ = "datasets"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    properties = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="datasets")

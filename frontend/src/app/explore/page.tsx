@@ -1,32 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/exploration/search-bar";
 import { SessionTabs } from "@/components/exploration/session-tabs";
 import { OverviewTab } from "@/components/exploration/overview-tab";
 import { ChatThread } from "@/components/exploration/chat-thread";
 import { useExploration } from "@/hooks/use-exploration";
 import { useChat } from "@/hooks/use-chat";
+import type { ChatMessage } from "@/interfaces/api";
 import { explorationService } from "@/services/exploration.service";
 import { chatService } from "@/services/chat.service";
 
-export default function ExplorePage() {
+function ExploreContent() {
+  const searchParams = useSearchParams();
+  const requestedExplorationId = searchParams.get("exploration");
+
   const [explorationId, setExplorationId] = useState<string | null>(null);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const initRef = useRef(false);
 
-  // Create a temporary exploration session on mount (no deal context)
+  // Create a fresh exploration on mount, or load a saved one from query param.
+  // Runs once per mount (component remounts on each navigation thanks to the key prop).
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-    explorationService.createFree("Market Exploration").then((exp) => {
-      setExplorationId(exp.id);
-    });
+    let cancelled = false;
+    async function initExploration() {
+      if (requestedExplorationId) {
+        setExplorationId(requestedExplorationId);
+        return;
+      }
+      const exp = await explorationService.createFree("Market Exploration");
+      if (!cancelled) setExplorationId(exp.id);
+    }
+    initExploration();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { sessions, refresh } = useExploration(explorationId);
+  const { exploration, sessions, refresh } = useExploration(explorationId);
   const { messages, setMessages, sending, sendMessage } = useChat(activeTabId);
+
+  // Auto-select the latest chat session when sessions load, and
+  // ensure activeTabId always belongs to the current exploration's sessions
+  useEffect(() => {
+    if (sessions.length === 0) {
+      if (activeTabId !== null) setActiveTabId(null);
+      return;
+    }
+    // If current tab doesn't belong to this exploration's sessions, fix it
+    if (activeTabId && !sessions.some((s) => s.id === activeTabId)) {
+      setActiveTabId(sessions[sessions.length - 1].id);
+      return;
+    }
+    // If no tab selected yet, pick the latest
+    if (!activeTabId) {
+      setActiveTabId(sessions[sessions.length - 1].id);
+    }
+  }, [sessions, activeTabId]);
 
   // Search creates a new session, sends the message, and switches to it
   const handleSearch = useCallback(
@@ -41,8 +71,17 @@ export default function ExplorePage() {
         );
         await refresh();
         setActiveTabId(session.id);
-        // Send message and fetch results for the new session directly
-        // (don't rely on sendMessage from useChat which has stale sessionId)
+
+        const optimisticUserMsg: ChatMessage = {
+          id: "temp-" + Date.now(),
+          session_id: session.id,
+          role: "user",
+          content: query,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        };
+        setMessages([optimisticUserMsg]);
+
         await chatService.sendMessage(session.id, query, connectors);
         const msgs = await chatService.listMessages(session.id);
         setMessages(msgs);
@@ -55,7 +94,6 @@ export default function ExplorePage() {
     [explorationId, refresh, setMessages]
   );
 
-  // Tab management
   const handleNewTab = useCallback(async () => {
     if (!explorationId) return;
     const session = await chatService.createSession(explorationId, "New Search");
@@ -78,14 +116,21 @@ export default function ExplorePage() {
     setActiveTabId(id);
   }, []);
 
-  const handleSelectProperty = useCallback((_index: number) => {
-    // Property detail interaction — placeholder for future drill-down
-  }, []);
+  const handleSelectProperty = useCallback((_index: number) => {}, []);
+
+  const handleToggleSave = useCallback(async () => {
+    if (!explorationId || !exploration) return;
+    try {
+      await explorationService.update(explorationId, { saved: !exploration.saved });
+      await refresh();
+    } catch (err) {
+      console.error("Failed to toggle save", err);
+    }
+  }, [explorationId, exploration, refresh]);
 
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="max-w-7xl w-full mx-auto px-6 pt-8 pb-2 flex flex-col flex-1 min-h-0">
-        {/* Header */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold tracking-tight">
             Market Exploration
@@ -96,16 +141,16 @@ export default function ExplorePage() {
           </p>
         </div>
 
-        {/* Session tabs */}
         <SessionTabs
           sessions={sessions}
           activeTabId={activeTabId}
           onSelectTab={handleSelectTab}
           onCloseTab={handleCloseTab}
           onNewTab={handleNewTab}
+          saved={exploration?.saved}
+          onToggleSave={handleToggleSave}
         />
 
-        {/* Active tab content */}
         <div className="flex-1 overflow-y-auto mt-2">
           {activeTabId === null ? (
             <OverviewTab
@@ -118,9 +163,16 @@ export default function ExplorePage() {
           )}
         </div>
 
-        {/* Chat input at bottom */}
         <SearchBar onSearch={handleSearch} loading={searchLoading || sending} />
       </div>
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense>
+      <ExploreContent />
+    </Suspense>
   );
 }

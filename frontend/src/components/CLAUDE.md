@@ -13,16 +13,36 @@ Components: Button, Input, Label, Card, Dialog, Tabs, Table, Badge, Textarea, Se
 | Directory | Component | Purpose |
 |-----------|-----------|---------|
 | `deals/` | `CreateDealForm` | File upload + quick-extract auto-fill + deal creation form |
-| `deals/` | `DealProgressBar` | 5-stage progress bar with spinner/checkmarks. Props: `hasDocuments`, `hasFields`, `hasAssumptions`, `hasValidations`, `activeStep`, `activeDetail` |
+| `deals/` | `DealProgressBar` | Multi-stage progress bar with spinner/checkmarks |
 | `documents/` | `ProcessingTracker` | Document processing status with step-by-step progress dots |
 | `extraction/` | `ExtractedFieldsTable` | Table of extracted fields (key, value, unit, confidence) |
 | `assumptions/` | `AssumptionEditor` | Read-only assumption table — users can regenerate but not manually edit |
-| `validation/` | `ValidationTable` | Expandable validation results with status badges. Click row → shows explanation, search steps, sources |
+| `assumptions/` | `AssumptionPanel` | Assumption panel UI wrapper |
+| `validation/` | `ValidationTable` | Expandable validation results with status badges |
 | `validation/` | `SearchStepTree` | Quick/deep search phase visualization — shows queries and result links per phase |
+| `validation/` | `ValidationDetailModal` | Modal showing OM vs Market values, confidence, explanation, search steps, sources |
+| `comps/` | `CompCard` | Comparable property card |
+| `comps/` | `CompsTab` | Comps tab container |
+| `historical/` | `HistoricalFinancialsTab` | Historical financials display tab |
+| `sensitivity/` | `SensitivityTab` | Sensitivity analysis tab |
+| `sensitivity/` | `SensitivityTable` | Sensitivity data table |
+| `exploration/` | `SearchBar` | ChatGPT-style bottom-positioned input with auto-resize textarea, send button, connector chips |
+| `exploration/` | `SessionTabs` | Chat session dropdown selector + New Chat + Save/Bookmark button |
+| `exploration/` | `OverviewTab` | Overview/stats when no chat is active |
+| `exploration/` | `ChatThread` | Chat message list with auto-scroll, loading indicator |
+| `exploration/` | `UserMessage` | User message bubble |
+| `exploration/` | `AssistantMessage` | Assistant message with markdown rendering, property cards, detail modal, "Add to Dataset" button |
+| `exploration/` | `PropertyCard` | Compact property card in search results (clickable) |
+| `exploration/` | `PropertyModal` | Full property detail modal |
+| `exploration/` | `ComparisonToggle` | Toggle for comparison mode |
+| `exploration/` | `ComparisonChart` | Comparison chart visualization |
+| `layout/` | `DealSidebar` | Sidebar for deal workspace with deal summary, documents, assumptions, validations, historical financials |
 
 ## Patterns
 
 - **Status badges**: Use `Badge` with variant mapping (`within_range` → default, `above_market` → destructive, etc.)
-- **Markdown links in explanations**: `markdownLinksToHtml()` converts `[text](url)` to `<a>` tags via regex
+- **Markdown rendering**: `AssistantMessage` has a custom markdown renderer handling paragraphs, bold, headers, lists, code blocks, tables, and links
+- **Property extraction**: `extractProperties()` parses ` ```properties ` fenced JSON blocks from assistant content into `PropertyData[]`
 - **Expandable rows**: `ValidationTable` uses `expandedId` state — one row expanded at a time
+- **Validation detail modal**: Sidebar validation rows are clickable buttons opening `ValidationDetailModal`
 - **No emoji** unless user explicitly requests it

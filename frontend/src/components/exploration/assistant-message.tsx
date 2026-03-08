@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import type { ChatMessage } from "@/interfaces/api";
+import { useCallback, useEffect, useState } from "react";
+import type { ChatMessage, Dataset } from "@/interfaces/api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -10,9 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { datasetService } from "@/services/dataset.service";
 
 interface AssistantMessageProps {
   message: ChatMessage;
+  dealId?: string | null;
 }
 
 interface PropertyData {
@@ -418,7 +421,182 @@ function renderInline(text: string): React.ReactNode {
   });
 }
 
-export function AssistantMessage({ message }: AssistantMessageProps) {
+function AddToDatasetButton({
+  properties,
+  dealId,
+}: {
+  properties: PropertyData[];
+  dealId?: string | null;
+}) {
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const loadDatasets = useCallback(async () => {
+    try {
+      const ds = dealId
+        ? await datasetService.listByDeal(dealId)
+        : await datasetService.listFree();
+      setDatasets(ds);
+    } catch {
+      // ignore
+    }
+  }, [dealId]);
+
+  useEffect(() => {
+    if (showMenu) loadDatasets();
+  }, [showMenu, loadDatasets]);
+
+  const handleCreateNew = async () => {
+    const name = newName.trim() || `Search Results ${new Date().toLocaleDateString()}`;
+    setCreating(true);
+    try {
+      await datasetService.create({
+        name,
+        deal_id: dealId || undefined,
+        properties: properties as Record<string, unknown>[],
+      });
+      setShowMenu(false);
+      setShowNameInput(false);
+      setNewName("");
+    } catch (err) {
+      console.error("Failed to create dataset", err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAddToExisting = async (datasetId: string) => {
+    setAdding(datasetId);
+    try {
+      await datasetService.addProperties(
+        datasetId,
+        properties as Record<string, unknown>[]
+      );
+      setShowMenu(false);
+    } catch (err) {
+      console.error("Failed to add to dataset", err);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-xs"
+        onClick={() => {
+          setShowMenu(!showMenu);
+          if (showMenu) {
+            setShowNameInput(false);
+            setNewName("");
+          }
+        }}
+      >
+        <svg
+          className="w-3.5 h-3.5 mr-1"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+        Add to Dataset
+      </Button>
+      {showMenu && (
+        <div className="absolute bottom-full left-0 mb-1 bg-background border rounded-md shadow-lg z-50 w-64 py-1">
+          {showNameInput ? (
+            <div className="px-3 py-2 space-y-2">
+              <input
+                className="w-full text-sm border rounded px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Dataset name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateNew();
+                  if (e.key === "Escape") {
+                    setShowNameInput(false);
+                    setNewName("");
+                  }
+                }}
+                autoFocus
+              />
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  className="text-xs flex-1"
+                  onClick={handleCreateNew}
+                  disabled={creating}
+                >
+                  {creating ? "Creating..." : "Create"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setShowNameInput(false);
+                    setNewName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+              onClick={() => setShowNameInput(true)}
+            >
+              <svg
+                className="w-4 h-4 text-muted-foreground"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              New Dataset
+            </button>
+          )}
+          {datasets.length > 0 && (
+            <div className="border-t my-1" />
+          )}
+          {datasets.map((ds) => (
+            <button
+              key={ds.id}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted disabled:opacity-50 truncate"
+              onClick={() => handleAddToExisting(ds.id)}
+              disabled={adding === ds.id}
+            >
+              {adding === ds.id ? "Adding..." : ds.name}
+              <span className="text-xs text-muted-foreground ml-1">
+                ({ds.properties.length})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AssistantMessage({ message, dealId }: AssistantMessageProps) {
   const [selectedProperty, setSelectedProperty] = useState<PropertyData | null>(
     null
   );
@@ -434,15 +612,23 @@ export function AssistantMessage({ message }: AssistantMessageProps) {
         {renderMarkdown(textContent)}
 
         {properties.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            {properties.map((prop, i) => (
-              <PropertyCard
-                key={i}
-                property={prop}
-                onClick={() => setSelectedProperty(prop)}
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {properties.map((prop, i) => (
+                <PropertyCard
+                  key={i}
+                  property={prop}
+                  onClick={() => setSelectedProperty(prop)}
+                />
+              ))}
+            </div>
+            <div className="flex justify-end pt-1">
+              <AddToDatasetButton
+                properties={properties}
+                dealId={dealId}
               />
-            ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
 

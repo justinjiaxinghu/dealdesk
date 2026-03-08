@@ -6,13 +6,18 @@ Concrete implementations of domain interfaces. Each subdirectory implements one 
 
 SQLAlchemy 2.0 async with ORM models.
 
-- **`models.py`**: ORM models mirroring domain entities. Uses custom `UUIDType` for SQLite/PostgreSQL compatibility. JSON columns for `processing_steps`, `sources`, `search_steps`.
+- **`models.py`**: ORM models mirroring domain entities. Uses custom `UUIDType` for SQLite/PostgreSQL compatibility. JSON columns for `processing_steps`, `sources`, `search_steps`, `properties`, `connectors`, `session_data`.
 - **`mappers.py`**: Bidirectional `entity_to_model` / `model_to_entity` converters. Handles enum `.value` ↔ `Enum()` conversion and ProcessingStep serialization.
 - **`database.py`**: Session factory and engine setup from `config.database_url`.
 - **Repos** (`*_repo.py`): Each repo takes an `AsyncSession`, implements domain interface. Key patterns:
   - `bulk_upsert()` on assumptions: match by `(set_id, key)`, insert or update
   - `bulk_upsert()` on validations: match by `(deal_id, field_key)`
+  - `bulk_upsert()` on comps: match by `(deal_id, address)`
+  - `bulk_upsert()` on historical financials: match by `(deal_id, period_label, metric_key)`
   - `update_processing_step()`: manages JSON array of processing steps on documents
+  - `list_free()` on explorations/datasets: filter where `deal_id IS NULL`
+
+Repo files: `deal_repo`, `document_repo`, `extraction_repo`, `assumption_repo`, `export_repo`, `field_validation_repo`, `comp_repo`, `historical_financial_repo`, `exploration_repo`, `chat_repo`, `snapshot_repo`, `dataset_repo`
 
 ## LLM (`llm/`)
 
@@ -26,10 +31,23 @@ SQLAlchemy 2.0 async with ORM models.
   - `_run_search_phase()`: Agentic loop — LLM calls `web_search` tool, we execute via Tavily, feed results back
   - `_extract_json()`: Robust JSON extraction from LLM responses (handles code blocks, embedded JSON, prose)
   - All completions use `response_format={"type": "json_object"}` even with tools
+- `extract_historical_financials()`: Extract financial metrics from OM pages
+
+## Comps (`comps/`)
+
+Comparable property search via multiple providers:
+
+- `RentcastCompsProvider` — Rentcast API for property comparables
+- `TavilyCompsProvider` — Tavily web search + GPT-4o extraction for comps
+- `CombinedCompsProvider` — Aggregates results from both providers
+
+## Search (`search/`)
+
+`TavilyMarketSearchProvider` — Market search for agentic chat. Executes web queries via Tavily, returns structured `SearchResult` objects.
 
 ## Document Processing (`document_processing/`)
 
-`PdfplumberProcessor` — wraps sync pdfplumber in `asyncio.to_thread()`. Extracts per-page text and tables.
+`PdfPlumberProcessor` — wraps sync pdfplumber in `asyncio.to_thread()`. Extracts per-page text and tables.
 
 ## File Storage (`file_storage/`)
 

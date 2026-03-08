@@ -10,6 +10,7 @@ import { OverviewTab } from "@/components/exploration/overview-tab";
 import { useDeal } from "@/hooks/use-deal";
 import { useExploration } from "@/hooks/use-exploration";
 import { useChat } from "@/hooks/use-chat";
+import type { ChatMessage } from "@/interfaces/api";
 import { explorationService } from "@/services/exploration.service";
 import { chatService } from "@/services/chat.service";
 import { assumptionService } from "@/services/assumption.service";
@@ -57,23 +58,21 @@ export default function DealWorkspacePage({
     if (explorationInitRef.current) return;
     explorationInitRef.current = true;
 
-    async function initExploration() {
-      try {
-        // Find existing explorations for this deal
-        const dealExplorations = await explorationService.listByDeal(id);
-        if (dealExplorations.length > 0) {
-          setExplorationId(dealExplorations[0].id);
-        } else {
-          const newExploration = await explorationService.createForDeal(id);
-          setExplorationId(newExploration.id);
-        }
-      } catch (err) {
-        console.error("Failed to initialize exploration", err);
+    async function initExploration(retries = 3) {
+      for (let attempt = 0; attempt < retries; attempt++) {
         try {
+          const dealExplorations = await explorationService.listByDeal(id);
+          if (dealExplorations.length > 0) {
+            setExplorationId(dealExplorations[0].id);
+            return;
+          }
           const newExploration = await explorationService.createForDeal(id);
           setExplorationId(newExploration.id);
+          return;
         } catch {
-          console.error("Failed to create exploration session");
+          if (attempt < retries - 1) {
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          }
         }
       }
     }
@@ -81,10 +80,25 @@ export default function DealWorkspacePage({
     initExploration();
   }, [id]);
 
-  const { sessions, refresh: refreshExploration } =
+  const { exploration, sessions, refresh: refreshExploration } =
     useExploration(explorationId);
   const { messages, setMessages, sending, sendMessage, refresh: refreshMessages } =
     useChat(activeTabId);
+
+  // Auto-select the latest chat session when sessions load, and
+  // ensure activeTabId always belongs to the current exploration's sessions
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    if (activeTabId && !sessions.some((s) => s.id === activeTabId)) {
+      setActiveTabId(sessions[sessions.length - 1].id);
+      return;
+    }
+    if (!autoSelectedRef.current) {
+      autoSelectedRef.current = true;
+      setActiveTabId(sessions[sessions.length - 1].id);
+    }
+  }, [sessions, activeTabId]);
 
   // --- Auto-pipeline: chain extraction polling -> benchmarks -> validation -> comps ---
   useEffect(() => {
@@ -231,10 +245,20 @@ export default function DealWorkspacePage({
         await refreshExploration();
         setActiveTabId(session.id);
 
+        // Immediately show the user's message so it doesn't disappear
+        const optimisticUserMsg: ChatMessage = {
+          id: "temp-" + Date.now(),
+          session_id: session.id,
+          role: "user",
+          content: query,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        };
+        setMessages([optimisticUserMsg]);
+
         // Send the message and wait for completion
         await chatService.sendMessage(session.id, query, connectors);
-        // Fetch messages for the NEW session (don't use refreshMessages which
-        // relies on the stale activeTabId from the useChat hook closure)
+        // Fetch all messages for the session (replaces optimistic message)
         const msgs = await chatService.listMessages(session.id);
         setMessages(msgs);
       } catch (err) {
@@ -290,6 +314,16 @@ export default function DealWorkspacePage({
   const handleSelectProperty = useCallback((_index: number) => {
     // Placeholder: could open a detail panel or navigate
   }, []);
+
+  const handleToggleSave = useCallback(async () => {
+    if (!explorationId || !exploration) return;
+    try {
+      await explorationService.update(explorationId, { saved: !exploration.saved });
+      await refreshExploration();
+    } catch (err) {
+      console.error("Failed to toggle save", err);
+    }
+  }, [explorationId, exploration, refreshExploration]);
 
   // --- Loading / error states ---
   if (loading) {
@@ -359,6 +393,8 @@ export default function DealWorkspacePage({
             onSelectTab={handleSelectTab}
             onCloseTab={handleCloseTab}
             onNewTab={handleNewTab}
+            saved={exploration?.saved}
+            onToggleSave={handleToggleSave}
           />
         </div>
 
@@ -371,7 +407,7 @@ export default function DealWorkspacePage({
               onSelectProperty={handleSelectProperty}
             />
           ) : (
-            <ChatThread messages={messages} loading={sending || searchLoading} />
+            <ChatThread messages={messages} loading={sending || searchLoading} dealId={id} />
           )}
         </div>
 

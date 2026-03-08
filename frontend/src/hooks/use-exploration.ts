@@ -10,6 +10,7 @@ export function useExploration(explorationId: string | null) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
+  const prevExplorationId = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!explorationId) return;
@@ -30,7 +31,12 @@ export function useExploration(explorationId: string | null) {
     }
   }, [explorationId]);
 
+  // Reset sessions when exploration changes
   useEffect(() => {
+    if (explorationId !== prevExplorationId.current) {
+      prevExplorationId.current = explorationId;
+      setSessions([]);
+    }
     if (explorationId) refresh();
   }, [explorationId, refresh]);
 

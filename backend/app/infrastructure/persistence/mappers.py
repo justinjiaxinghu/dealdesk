@@ -13,6 +13,7 @@ from app.domain.entities.field_validation import FieldValidation
 from app.domain.entities.exploration import ExplorationSession
 from app.domain.entities.chat import ChatSession, ChatMessage
 from app.domain.entities.snapshot import Snapshot
+from app.domain.entities.dataset import Dataset
 from app.domain.value_objects.enums import (
     AssumptionGroup,
     ChatRole,
@@ -44,6 +45,7 @@ from app.infrastructure.persistence.models import (
     HistoricalFinancialModel,
     MarketTableModel,
     SnapshotModel,
+    DatasetModel,
 )
 
 
@@ -519,4 +521,31 @@ def snapshot_to_model(entity: Snapshot) -> SnapshotModel:
         name=entity.name,
         session_data=entity.session_data,
         created_at=entity.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dataset
+# ---------------------------------------------------------------------------
+
+
+def dataset_to_entity(model: DatasetModel) -> Dataset:
+    return Dataset(
+        id=model.id,
+        deal_id=model.deal_id,
+        name=model.name,
+        properties=model.properties or [],
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def dataset_to_model(entity: Dataset) -> DatasetModel:
+    return DatasetModel(
+        id=entity.id,
+        deal_id=entity.deal_id,
+        name=entity.name,
+        properties=entity.properties,
+        created_at=entity.created_at,
+        updated_at=entity.updated_at,
     )

@@ -17,6 +17,7 @@ from app.domain.entities.historical_financial import HistoricalFinancial
 from app.domain.entities.exploration import ExplorationSession
 from app.domain.entities.chat import ChatSession, ChatMessage
 from app.domain.entities.snapshot import Snapshot
+from app.domain.entities.dataset import Dataset
 from app.domain.value_objects import DealFilters, ProcessingStep
 
 
@@ -142,6 +143,9 @@ class ExplorationSessionRepository(ABC):
     async def list_saved(self) -> list[ExplorationSession]: ...
 
     @abstractmethod
+    async def list_free(self) -> list[ExplorationSession]: ...
+
+    @abstractmethod
     async def list_by_deal_id(self, deal_id: UUID) -> list[ExplorationSession]: ...
 
     @abstractmethod
@@ -194,3 +198,26 @@ class SnapshotRepository(ABC):
 
     @abstractmethod
     async def delete(self, snapshot_id: UUID) -> None: ...
+
+
+class DatasetRepository(ABC):
+    @abstractmethod
+    async def create(self, dataset: Dataset) -> Dataset: ...
+
+    @abstractmethod
+    async def get_by_id(self, dataset_id: UUID) -> Dataset | None: ...
+
+    @abstractmethod
+    async def list_all(self) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def list_by_deal_id(self, deal_id: UUID) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def list_free(self) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def update(self, dataset: Dataset) -> Dataset: ...
+
+    @abstractmethod
+    async def delete(self, dataset_id: UUID) -> None: ...

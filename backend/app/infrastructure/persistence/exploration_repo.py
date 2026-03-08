@@ -42,6 +42,15 @@ class SqlAlchemyExplorationSessionRepository(ExplorationSessionRepository):
         result = await self._session.execute(stmt)
         return [exploration_session_to_entity(m) for m in result.scalars().all()]
 
+    async def list_free(self) -> list[ExplorationSession]:
+        stmt = (
+            select(ExplorationSessionModel)
+            .where(ExplorationSessionModel.deal_id.is_(None))
+            .order_by(ExplorationSessionModel.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [exploration_session_to_entity(m) for m in result.scalars().all()]
+
     async def list_by_deal_id(self, deal_id: UUID) -> list[ExplorationSession]:
         stmt = (
             select(ExplorationSessionModel)

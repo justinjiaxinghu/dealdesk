@@ -8,9 +8,10 @@ import { AssistantMessage } from "./assistant-message";
 interface ChatThreadProps {
   messages: ChatMessage[];
   loading?: boolean;
+  dealId?: string | null;
 }
 
-export function ChatThread({ messages, loading = false }: ChatThreadProps) {
+export function ChatThread({ messages, loading = false, dealId }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages or loading state change
@@ -35,7 +36,7 @@ export function ChatThread({ messages, loading = false }: ChatThreadProps) {
         msg.role === "user" ? (
           <UserMessage key={msg.id} message={msg} />
         ) : (
-          <AssistantMessage key={msg.id} message={msg} />
+          <AssistantMessage key={msg.id} message={msg} dealId={dealId} />
         )
       )}
 

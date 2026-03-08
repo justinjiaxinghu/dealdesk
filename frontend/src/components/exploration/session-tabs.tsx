@@ -10,6 +10,8 @@ interface SessionTabsProps {
   onSelectTab: (id: string | null) => void;
   onCloseTab: (id: string) => void;
   onNewTab: () => void;
+  saved?: boolean;
+  onToggleSave?: () => void;
 }
 
 export function SessionTabs({
@@ -18,6 +20,8 @@ export function SessionTabs({
   onSelectTab,
   onCloseTab,
   onNewTab,
+  saved,
+  onToggleSave,
 }: SessionTabsProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -138,6 +142,32 @@ export function SessionTabs({
         </svg>
         New Chat
       </Button>
+
+      {/* Save exploration button */}
+      {onToggleSave && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs gap-1 ml-auto"
+          onClick={onToggleSave}
+          title={saved ? "Unsave exploration" : "Save exploration"}
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill={saved ? "currentColor" : "none"}
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+            />
+          </svg>
+          {saved ? "Saved" : "Save"}
+        </Button>
+      )}
     </div>
   );
 }

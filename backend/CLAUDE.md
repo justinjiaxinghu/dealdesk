@@ -41,4 +41,12 @@ infrastructure/ ──────┘ (implements domain interfaces)
 - Async throughout: SQLAlchemy async sessions, `asyncio.to_thread()` for sync ops (pdfplumber)
 - Background tasks via FastAPI `BackgroundTasks` (document processing pipeline)
 - Repos are per-session — constructed from session in `dependencies.py`
-- Providers (LLM, file storage, etc.) are singletons — constructed once at module level
+- Providers (LLM, file storage, comps, search) are singletons — constructed once at module level
+- Auto table creation on startup via `Base.metadata.create_all` (dev); use Alembic for prod
+
+## Key Dependencies
+
+- FastAPI >= 0.115, SQLAlchemy[asyncio] >= 2.0, Pydantic >= 2.10
+- openai >= 1.60, tavily-python >= 0.5, pdfplumber >= 0.11
+- openpyxl >= 3.1, aiofiles >= 24.1
+- Dev: pytest >= 8.0, pytest-asyncio >= 0.24, httpx >= 0.28, aiosqlite >= 0.20

@@ -237,6 +237,17 @@ export interface ChatMessage {
   created_at: string;
 }
 
+// --- Dataset ---
+
+export interface Dataset {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  properties: Record<string, unknown>[];
+  created_at: string;
+  updated_at: string;
+}
+
 // --- Snapshot ---
 
 export interface Snapshot {

@@ -116,7 +116,9 @@ export default function DealsPage() {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() =>
                     router.push(
-                      exp.deal_id ? `/deals/${exp.deal_id}` : "/explore"
+                      exp.deal_id
+                        ? `/deals/${exp.deal_id}`
+                        : `/explore?exploration=${exp.id}`
                     )
                   }
                 >

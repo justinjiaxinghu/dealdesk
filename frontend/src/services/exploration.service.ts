@@ -16,6 +16,8 @@ export const explorationService = {
 
   list: () => apiFetch<ExplorationSession[]>("/explorations"),
 
+  listFree: () => apiFetch<ExplorationSession[]>("/explorations/free"),
+
   listByDeal: (dealId: string) =>
     apiFetch<ExplorationSession[]>(`/deals/${dealId}/explorations`),
 
