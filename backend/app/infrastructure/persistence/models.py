@@ -58,6 +58,7 @@ class DealModel(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     square_feet: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )
@@ -372,6 +373,7 @@ class ExplorationSessionModel(Base):
     deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     saved = Column(Boolean, nullable=False, default=False)
+    tags = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False)
 
     deal = relationship("DealModel", backref="exploration_sessions")
@@ -461,3 +463,36 @@ class DatasetModel(Base):
     updated_at = Column(DateTime, nullable=False)
 
     deal = relationship("DealModel", backref="datasets")
+
+
+# ---------------------------------------------------------------------------
+# Connectors
+# ---------------------------------------------------------------------------
+
+
+class ConnectorModel(Base):
+    __tablename__ = "connectors"
+
+    id = Column(UUIDType, primary_key=True)
+    provider = Column(String, nullable=False, unique=True)
+    status = Column(String, nullable=False, default="disconnected")
+    file_count = Column(Integer, nullable=False, default=0)
+    connected_at = Column(DateTime, nullable=True)
+
+    files = relationship(
+        "ConnectorFileModel", back_populates="connector", cascade="all, delete-orphan"
+    )
+
+
+class ConnectorFileModel(Base):
+    __tablename__ = "connector_files"
+
+    id = Column(UUIDType, primary_key=True)
+    connector_id = Column(UUIDType, ForeignKey("connectors.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)
+    text_content = Column(Text, nullable=False)
+    indexed_at = Column(DateTime, nullable=False)
+
+    connector = relationship("ConnectorModel", back_populates="files")

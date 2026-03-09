@@ -14,10 +14,13 @@ from app.domain.entities.exploration import ExplorationSession
 from app.domain.entities.chat import ChatSession, ChatMessage
 from app.domain.entities.snapshot import Snapshot
 from app.domain.entities.dataset import Dataset
+from app.domain.entities.connector import Connector, ConnectorFile
 from app.domain.value_objects.enums import (
     AssumptionGroup,
     ChatRole,
     CompSource,
+    ConnectorProvider,
+    ConnectorStatus,
     ConnectorType,
     DocumentType,
     ExportType,
@@ -46,6 +49,8 @@ from app.infrastructure.persistence.models import (
     MarketTableModel,
     SnapshotModel,
     DatasetModel,
+    ConnectorModel,
+    ConnectorFileModel,
 )
 
 
@@ -65,6 +70,7 @@ def deal_to_entity(model: DealModel) -> Deal:
         latitude=model.latitude,
         longitude=model.longitude,
         square_feet=model.square_feet,
+        tags=model.tags or [],
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -81,6 +87,7 @@ def deal_to_model(entity: Deal) -> DealModel:
         latitude=entity.latitude,
         longitude=entity.longitude,
         square_feet=entity.square_feet,
+        tags=entity.tags,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
     )
@@ -431,6 +438,7 @@ def exploration_session_to_entity(model: ExplorationSessionModel) -> Exploration
         deal_id=model.deal_id,
         name=model.name,
         saved=model.saved,
+        tags=model.tags or [],
         created_at=model.created_at,
     )
 
@@ -441,6 +449,7 @@ def exploration_session_to_model(entity: ExplorationSession) -> ExplorationSessi
         deal_id=entity.deal_id,
         name=entity.name,
         saved=entity.saved,
+        tags=entity.tags,
         created_at=entity.created_at,
     )
 
@@ -548,4 +557,53 @@ def dataset_to_model(entity: Dataset) -> DatasetModel:
         properties=entity.properties,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+
+
+def connector_entity_to_model(entity: Connector) -> ConnectorModel:
+    return ConnectorModel(
+        id=entity.id,
+        provider=entity.provider.value,
+        status=entity.status.value,
+        file_count=entity.file_count,
+        connected_at=entity.connected_at,
+    )
+
+
+def connector_model_to_entity(model: ConnectorModel) -> Connector:
+    return Connector(
+        id=str(model.id),
+        provider=ConnectorProvider(model.provider),
+        status=ConnectorStatus(model.status),
+        file_count=model.file_count,
+        connected_at=model.connected_at,
+    )
+
+
+def connector_file_entity_to_model(entity: ConnectorFile) -> ConnectorFileModel:
+    return ConnectorFileModel(
+        id=entity.id,
+        connector_id=entity.connector_id,
+        name=entity.name,
+        path=entity.path,
+        file_type=entity.file_type,
+        text_content=entity.text_content,
+        indexed_at=entity.indexed_at,
+    )
+
+
+def connector_file_model_to_entity(model: ConnectorFileModel) -> ConnectorFile:
+    return ConnectorFile(
+        id=str(model.id),
+        connector_id=str(model.connector_id),
+        name=model.name,
+        path=model.path,
+        file_type=model.file_type,
+        text_content=model.text_content,
+        indexed_at=model.indexed_at,
     )

@@ -96,3 +96,15 @@ class ConnectorType(StrEnum):
     COMPSTACK = "compstack"
     LOOPNET = "loopnet"
     REA_VISTA = "rea_vista"
+
+
+class ConnectorProvider(StrEnum):
+    ONEDRIVE = "onedrive"
+    BOX = "box"
+    GOOGLE_DRIVE = "google_drive"
+    SHAREPOINT = "sharepoint"
+
+
+class ConnectorStatus(StrEnum):
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
