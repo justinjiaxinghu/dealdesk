@@ -13,13 +13,15 @@ const CONNECTORS = [
 
 interface SearchBarProps {
   onSearch: (query: string, connectors: string[]) => void;
+  onUploadOM?: (file: File) => void;
   loading?: boolean;
 }
 
-export function SearchBar({ onSearch, loading = false }: SearchBarProps) {
+export function SearchBar({ onSearch, onUploadOM, loading = false }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set(["tavily"]));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toggleConnector(id: string) {
     const connector = CONNECTORS.find((c) => c.id === id);
@@ -108,6 +110,36 @@ export function SearchBar({ onSearch, loading = false }: SearchBarProps) {
           className="flex-1 resize-none rounded-xl border border-input bg-muted/30 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:opacity-50"
           style={{ minHeight: "42px", maxHeight: "150px" }}
         />
+        {onUploadOM && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onUploadOM(file);
+                  e.target.value = "";
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              className="flex items-center justify-center w-9 h-9 rounded-full border border-input text-muted-foreground shrink-0 transition-opacity hover:text-foreground hover:border-foreground disabled:opacity-30 disabled:cursor-not-allowed mb-0.5"
+              aria-label="Upload Offering Memorandum"
+              title="Upload Offering Memorandum"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11v6m-3-3l3-3 3 3" />
+              </svg>
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={handleSubmit}
