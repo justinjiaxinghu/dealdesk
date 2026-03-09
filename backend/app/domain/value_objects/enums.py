@@ -108,3 +108,13 @@ class ConnectorProvider(StrEnum):
 class ConnectorStatus(StrEnum):
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
+
+
+class ReportFormat(StrEnum):
+    PPTX = "pptx"
+    XLSX = "xlsx"
+
+
+class ReportJobStatus(StrEnum):
+    DRAFT = "draft"
+    COMPLETED = "completed"

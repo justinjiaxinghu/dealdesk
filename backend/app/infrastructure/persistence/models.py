@@ -496,3 +496,35 @@ class ConnectorFileModel(Base):
     indexed_at = Column(DateTime, nullable=False)
 
     connector = relationship("ConnectorModel", back_populates="files")
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+
+class ReportTemplateModel(Base):
+    __tablename__ = "report_templates"
+
+    id = Column(UUIDType, primary_key=True)
+    name = Column(String, nullable=False)
+    file_format = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    regions = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+
+    jobs = relationship("ReportJobModel", back_populates="template", cascade="all, delete-orphan")
+
+
+class ReportJobModel(Base):
+    __tablename__ = "report_jobs"
+
+    id = Column(UUIDType, primary_key=True)
+    template_id = Column(UUIDType, ForeignKey("report_templates.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    fills = Column(JSON, nullable=False, default=dict)
+    status = Column(String, nullable=False, default="draft")
+    output_file_path = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+    template = relationship("ReportTemplateModel", back_populates="jobs")

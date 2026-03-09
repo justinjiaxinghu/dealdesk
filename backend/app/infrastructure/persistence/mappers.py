@@ -15,6 +15,7 @@ from app.domain.entities.chat import ChatSession, ChatMessage
 from app.domain.entities.snapshot import Snapshot
 from app.domain.entities.dataset import Dataset
 from app.domain.entities.connector import Connector, ConnectorFile
+from app.domain.entities.report import ReportTemplate, ReportJob
 from app.domain.value_objects.enums import (
     AssumptionGroup,
     ChatRole,
@@ -51,6 +52,8 @@ from app.infrastructure.persistence.models import (
     DatasetModel,
     ConnectorModel,
     ConnectorFileModel,
+    ReportTemplateModel,
+    ReportJobModel,
 )
 
 
@@ -606,4 +609,44 @@ def connector_file_model_to_entity(model: ConnectorFileModel) -> ConnectorFile:
         file_type=model.file_type,
         text_content=model.text_content,
         indexed_at=model.indexed_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Report Template
+# ---------------------------------------------------------------------------
+
+
+def report_template_entity_to_model(entity: ReportTemplate) -> ReportTemplateModel:
+    return ReportTemplateModel(
+        id=entity.id, name=entity.name, file_format=entity.file_format,
+        file_path=entity.file_path, regions=entity.regions, created_at=entity.created_at,
+    )
+
+
+def report_template_model_to_entity(model: ReportTemplateModel) -> ReportTemplate:
+    return ReportTemplate(
+        id=str(model.id), name=model.name, file_format=model.file_format,
+        file_path=model.file_path, regions=model.regions or [], created_at=model.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Report Job
+# ---------------------------------------------------------------------------
+
+
+def report_job_entity_to_model(entity: ReportJob) -> ReportJobModel:
+    return ReportJobModel(
+        id=entity.id, template_id=entity.template_id, name=entity.name,
+        fills=entity.fills, status=entity.status,
+        output_file_path=entity.output_file_path, created_at=entity.created_at,
+    )
+
+
+def report_job_model_to_entity(model: ReportJobModel) -> ReportJob:
+    return ReportJob(
+        id=str(model.id), template_id=str(model.template_id), name=model.name,
+        fills=model.fills or {}, status=model.status,
+        output_file_path=model.output_file_path, created_at=model.created_at,
     )
