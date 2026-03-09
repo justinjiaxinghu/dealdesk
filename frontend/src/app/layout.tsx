@@ -34,14 +34,17 @@ export default function RootLayout({
               DealDesk
             </Link>
             <nav className="flex items-center gap-4 text-sm">
-              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
-                Deals
-              </Link>
               <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
                 Explore
               </Link>
+              <Link href="/reports" className="text-muted-foreground hover:text-foreground transition-colors">
+                Reports
+              </Link>
               <Link href="/datasets" className="text-muted-foreground hover:text-foreground transition-colors">
                 Datasets
+              </Link>
+              <Link href="/connectors" className="text-muted-foreground hover:text-foreground transition-colors">
+                Connectors
               </Link>
             </nav>
           </div>
