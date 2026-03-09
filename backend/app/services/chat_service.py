@@ -21,6 +21,7 @@ from app.domain.interfaces.repositories import (
     FieldValidationRepository,
 )
 from app.domain.value_objects.enums import ChatRole, ConnectorType
+from app.services.connector_service import ConnectorService
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,28 @@ TOOL_DEFINITIONS = [
                     "query": {
                         "type": "string",
                         "description": "The search query",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "connected_files_search",
+            "description": "Search across the user's connected file storage (OneDrive, Box, Google Drive, SharePoint) for documents matching a query. Use this when the user asks about their own files, internal documents, rent rolls, financial statements, or any data from their connected sources.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to find relevant files",
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": "Optional: filter by provider (onedrive, box, google_drive, sharepoint)",
+                        "enum": ["onedrive", "box", "google_drive", "sharepoint"],
                     },
                 },
                 "required": ["query"],
@@ -89,6 +112,7 @@ class ChatService:
         market_search_provider: MarketSearchProvider,
         openai_api_key: str,
         openai_model: str,
+        connector_service: ConnectorService | None = None,
     ) -> None:
         self._exploration_repo = exploration_repo
         self._chat_session_repo = chat_session_repo
@@ -99,6 +123,7 @@ class ChatService:
         self._assumption_repo = assumption_repo
         self._validation_repo = validation_repo
         self._search_provider = market_search_provider
+        self._connector_service = connector_service
         self._openai = AsyncOpenAI(api_key=openai_api_key)
         self._model = openai_model
 
@@ -240,6 +265,23 @@ class ChatService:
                             ],
                             indent=2,
                         )
+                    elif tc.function.name == "connected_files_search":
+                        query = args.get("query", "")
+                        provider = args.get("provider")
+                        if self._connector_service:
+                            files = await self._connector_service.search_files(query, provider)
+                            tool_result = json.dumps([
+                                {
+                                    "name": f.name,
+                                    "path": f.path,
+                                    "file_type": f.file_type,
+                                    "relevant_content": f.text_content,
+                                    "source": "connected_files",
+                                }
+                                for f in files
+                            ])
+                        else:
+                            tool_result = json.dumps({"error": "No connector service available"})
                     else:
                         tool_result = json.dumps(
                             {"error": f"Unknown tool: {tc.function.name}"}

@@ -318,6 +318,7 @@ def get_chat_service(
     assumption_set_repo: Annotated[SqlAlchemyAssumptionSetRepository, Depends(get_assumption_set_repo)],
     assumption_repo: Annotated[SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)],
     validation_repo: Annotated[SqlAlchemyFieldValidationRepository, Depends(get_field_validation_repo)],
+    connector_service: Annotated[ConnectorService, Depends(get_connector_service)],
 ) -> ChatService:
     return ChatService(
         exploration_repo=exploration_repo,
@@ -331,4 +332,5 @@ def get_chat_service(
         market_search_provider=_market_search_provider,
         openai_api_key=settings.openai_api_key,
         openai_model=settings.openai_model,
+        connector_service=connector_service,
     )
