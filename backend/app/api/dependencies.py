@@ -162,6 +162,11 @@ from app.services.financial_model_service import FinancialModelService
 from app.services.historical_financial_service import HistoricalFinancialService
 from app.services.validation_service import ValidationService
 from app.services.chat_service import ChatService
+from app.infrastructure.persistence.connector_repo import (
+    SqlAlchemyConnectorRepository,
+    SqlAlchemyConnectorFileRepository,
+)
+from app.services.connector_service import ConnectorService
 
 
 def get_deal_service(
@@ -294,6 +299,13 @@ def get_historical_financial_service(
         llm_provider=_llm_provider,
         document_processor=_document_processor,
         file_storage=_file_storage,
+    )
+
+
+def get_connector_service(session: DbSession) -> ConnectorService:
+    return ConnectorService(
+        connector_repo=SqlAlchemyConnectorRepository(session),
+        file_repo=SqlAlchemyConnectorFileRepository(session),
     )
 
 

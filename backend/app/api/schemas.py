@@ -29,6 +29,7 @@ class CreateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] = []
 
 
 class UpdateDealRequest(BaseModel):
@@ -40,6 +41,7 @@ class UpdateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] | None = None
 
 
 class DealResponse(BaseModel):
@@ -54,6 +56,7 @@ class DealResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] = []
     created_at: datetime
     updated_at: datetime
 
@@ -337,7 +340,8 @@ class CompResponse(BaseModel):
 
 
 class CreateExplorationRequest(BaseModel):
-    name: str = "Untitled Exploration"
+    name: str = "Untitled Discovery"
+    tags: list[str] = []
 
 
 class ExplorationSessionResponse(BaseModel):
@@ -346,12 +350,14 @@ class ExplorationSessionResponse(BaseModel):
     deal_id: UUID | None
     name: str
     saved: bool
+    tags: list[str] = []
     created_at: datetime
 
 
 class UpdateExplorationRequest(BaseModel):
     name: str | None = None
     saved: bool | None = None
+    tags: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -445,3 +451,17 @@ class DatasetResponse(BaseModel):
     properties: list[dict]
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Connectors
+# ---------------------------------------------------------------------------
+
+
+class ConnectorResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    provider: str
+    status: str
+    file_count: int
+    connected_at: datetime | None
