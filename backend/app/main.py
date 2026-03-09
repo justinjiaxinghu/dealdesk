@@ -20,6 +20,7 @@ from app.api.v1.chat import router as chat_router
 from app.api.v1.explorations import router as explorations_router
 from app.api.v1.snapshots import router as snapshots_router
 from app.api.v1.datasets import router as datasets_router
+from app.api.v1.om_upload import router as om_upload_router
 from app.api.v1.validation import router as validation_router
 from app.config import settings
 from app.infrastructure.persistence.database import engine
@@ -64,6 +65,7 @@ app.include_router(explorations_router, prefix="/v1")
 app.include_router(chat_router, prefix="/v1")
 app.include_router(snapshots_router, prefix="/v1")
 app.include_router(datasets_router, prefix="/v1")
+app.include_router(om_upload_router, prefix="/v1")
 
 
 @app.exception_handler(Exception)
