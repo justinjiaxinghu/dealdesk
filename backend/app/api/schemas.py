@@ -465,3 +465,36 @@ class ConnectorResponse(BaseModel):
     status: str
     file_count: int
     connected_at: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+
+class ReportTemplateResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    name: str
+    file_format: str
+    regions: list[dict]
+    created_at: datetime
+
+
+class CreateReportJobRequest(BaseModel):
+    template_id: str
+    name: str
+
+
+class UpdateReportJobRequest(BaseModel):
+    fills: dict
+
+
+class ReportJobResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    template_id: str
+    name: str
+    fills: dict
+    status: str
+    created_at: datetime

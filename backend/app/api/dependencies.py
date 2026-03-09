@@ -167,6 +167,11 @@ from app.infrastructure.persistence.connector_repo import (
     SqlAlchemyConnectorFileRepository,
 )
 from app.services.connector_service import ConnectorService
+from app.infrastructure.persistence.report_repo import (
+    SqlAlchemyReportTemplateRepository,
+    SqlAlchemyReportJobRepository,
+)
+from app.services.report_service import ReportService
 
 
 def get_deal_service(
@@ -333,4 +338,12 @@ def get_chat_service(
         openai_api_key=settings.openai_api_key,
         openai_model=settings.openai_model,
         connector_service=connector_service,
+    )
+
+
+def get_report_service(session: DbSession) -> ReportService:
+    return ReportService(
+        template_repo=SqlAlchemyReportTemplateRepository(session),
+        job_repo=SqlAlchemyReportJobRepository(session),
+        file_storage=_file_storage,
     )
