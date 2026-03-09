@@ -3,28 +3,30 @@
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
-const CONNECTORS = [
-  { id: "tavily", label: "TAVILY", enabled: true },
-  { id: "costar", label: "COSTAR", enabled: false },
-  { id: "compstack", label: "COMPSTACK", enabled: false },
-  { id: "loopnet", label: "LOOPNET", enabled: false },
-  { id: "rea_vista", label: "REA VISTA", enabled: false },
-] as const;
-
 interface SearchBarProps {
   onSearch: (query: string, connectors: string[]) => void;
   onUploadOM?: (file: File) => void;
   loading?: boolean;
+  connectedSources?: string[];
 }
 
-export function SearchBar({ onSearch, onUploadOM, loading = false }: SearchBarProps) {
+export function SearchBar({ onSearch, onUploadOM, loading = false, connectedSources }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set(["tavily"]));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const connectorChips = [
+    { id: "tavily", label: "WEB SEARCH", enabled: true },
+    ...["onedrive", "box", "google_drive", "sharepoint"].map((p) => ({
+      id: p,
+      label: p.replace("_", " ").toUpperCase(),
+      enabled: connectedSources?.includes(p) ?? false,
+    })),
+  ];
+
   function toggleConnector(id: string) {
-    const connector = CONNECTORS.find((c) => c.id === id);
+    const connector = connectorChips.find((c) => c.id === id);
     if (!connector?.enabled) return;
     setSelected((prev) => {
       const next = new Set(prev);
@@ -69,7 +71,7 @@ export function SearchBar({ onSearch, onUploadOM, loading = false }: SearchBarPr
         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
           Sources:
         </span>
-        {CONNECTORS.map((c) => (
+        {connectorChips.map((c) => (
           <div key={c.id} className="relative group">
             <Badge
               variant={

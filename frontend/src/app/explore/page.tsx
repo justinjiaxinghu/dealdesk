@@ -23,6 +23,7 @@ import { DealSidebar } from "@/components/layout/deal-sidebar";
 import type { ChatMessage, ExplorationSession } from "@/interfaces/api";
 import { explorationService } from "@/services/exploration.service";
 import { chatService } from "@/services/chat.service";
+import { connectorService } from "@/services/connector.service";
 
 function SavedExplorationsView() {
   const router = useRouter();
@@ -202,6 +203,15 @@ function ExploreWorkspace({ explorationId }: { explorationId: string }) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [dealId, setDealId] = useState<string | null>(null);
+  const [connectedSources, setConnectedSources] = useState<string[]>([]);
+
+  useEffect(() => {
+    connectorService.list().then((connectors) => {
+      setConnectedSources(
+        connectors.filter((c) => c.status === "connected").map((c) => c.provider)
+      );
+    });
+  }, []);
 
   const { exploration, sessions, refresh } = useExploration(explorationId);
   const { messages, setMessages, sending } = useChat(activeTabId);
@@ -349,7 +359,7 @@ function ExploreWorkspace({ explorationId }: { explorationId: string }) {
           )}
         </div>
 
-        <SearchBar onSearch={handleSearch} onUploadOM={handleUploadOM} loading={searchLoading || sending} />
+        <SearchBar onSearch={handleSearch} onUploadOM={handleUploadOM} loading={searchLoading || sending} connectedSources={connectedSources} />
       </div>
     </div>
   );

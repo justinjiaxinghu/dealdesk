@@ -8,6 +8,7 @@ export interface Deal {
   latitude: number | null;
   longitude: number | null;
   square_feet: number | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -214,6 +215,7 @@ export interface ExplorationSession {
   deal_id: string | null;
   name: string;
   saved: boolean;
+  tags: string[];
   created_at: string;
 }
 
@@ -246,6 +248,16 @@ export interface Dataset {
   properties: Record<string, unknown>[];
   created_at: string;
   updated_at: string;
+}
+
+// --- Connector ---
+
+export interface Connector {
+  id: string;
+  provider: string;
+  status: "connected" | "disconnected";
+  file_count: number;
+  connected_at: string | null;
 }
 
 // --- Snapshot ---
