@@ -260,6 +260,34 @@ export interface Connector {
   connected_at: string | null;
 }
 
+// --- Report ---
+
+export interface FillableRegion {
+  region_id: string;
+  label: string;
+  sheet_or_slide: string;
+  region_type: string;
+  headers: string[];
+  row_count: number;
+}
+
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  file_format: string;
+  regions: FillableRegion[];
+  created_at: string;
+}
+
+export interface ReportJob {
+  id: string;
+  template_id: string;
+  name: string;
+  fills: Record<string, unknown>;
+  status: string;
+  created_at: string;
+}
+
 // --- Snapshot ---
 
 export interface Snapshot {
