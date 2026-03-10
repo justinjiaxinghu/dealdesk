@@ -23,6 +23,7 @@ backend/app/
     export/        # openpyxl Excel
     comps/         # Comparable property providers (Rentcast + Tavily)
     search/        # Market search provider (Tavily)
+    connectors/    # Cloud file storage connectors (mock data + ChromaDB vector search)
   api/             # FastAPI routes + Pydantic schemas + DI wiring
     v1/            # Versioned endpoints
 
@@ -149,6 +150,25 @@ All routes under `/v1`:
 - `POST /v1/sessions/{id}/messages` — Send message (triggers agentic chat loop)
 - `GET /v1/sessions/{id}/messages` — List messages
 
+### OM Upload
+- `POST /v1/explorations/{id}/om-upload` — Upload OM PDF, create deal via quick-extract, trigger background processing
+
+### Connectors
+- `GET /v1/connectors` — List all connectors (creates missing ones as disconnected)
+- `POST /v1/connectors/{provider}/connect` — Connect a provider (seeds mock files + indexes in ChromaDB)
+- `POST /v1/connectors/{provider}/disconnect` — Disconnect a provider (clears files + ChromaDB index)
+- `POST /v1/connectors/{provider}/files/search` — Search files via ChromaDB vector similarity
+
+### Reports
+- `POST /v1/report-templates` — Upload template (XLSX/PPTX)
+- `GET /v1/report-templates` — List templates
+- `GET /v1/report-templates/{id}` — Get single template
+- `POST /v1/report-jobs` — Create fill job from template
+- `GET /v1/report-jobs` — List jobs
+- `GET /v1/report-jobs/{id}` — Get job
+- `PATCH /v1/report-jobs/{id}` — Update job fills
+- `GET /v1/report-jobs/{id}/download` — Download filled output
+
 ### Datasets
 - `POST /v1/datasets` — Create dataset
 - `GET /v1/datasets` — List all datasets
@@ -178,9 +198,12 @@ All routes under `/v1`:
 - **Read-Only Assumptions**: Assumptions are AI-generated and displayed read-only; users can regenerate but not manually edit
 - **Quick Extract**: Deal creation form sends the first page of the uploaded PDF to GPT-4o to auto-fill deal metadata fields
 - **Two-Phase Validation**: OM field validation runs in two phases — quick surface search (basic Tavily, 1-2 queries) followed by deep research (advanced Tavily, up to 10 rounds). Each search call is logged as a `search_step` with phase, query, and results.
-- **Agentic Chat**: Chat service uses OpenAI tool calling with `web_search` (Tavily). Assistant responses include structured `properties` JSON blocks for rendering property cards.
+- **Agentic Chat**: Chat service uses OpenAI tool calling with `web_search` (Tavily) and `connected_files_search` (ChromaDB). Tools are dynamically enabled based on user-selected connector chips. Assistant responses include structured `properties` JSON blocks for rendering property cards.
 - **Datasets**: Properties from chat search results can be saved to datasets (deal-linked or standalone). Datasets store properties as a JSON array.
 - **Exploration Sessions**: Chat explorations can be saved/bookmarked for later reference. Free explorations (no deal) are reused across page visits.
+- **Connectors**: Cloud file storage integrations (OneDrive, Box, Google Drive, SharePoint) with mock data for dev. Files are indexed in ChromaDB for semantic search via the chat `connected_files_search` tool.
+- **Reports**: Upload XLSX/PPTX templates with `{{marker}}` placeholders. System detects fillable regions. Users create fill jobs and populate regions via copilot or manually.
+- **Sample Templates**: `sample_templates/` contains 3 example XLSX report templates (IC Memo, Market Comp Report, Due Diligence Report).
 
 ## Testing
 
@@ -197,6 +220,7 @@ All routes under `/v1`:
 | PDF Processing | pdfplumber (digital PDFs) |
 | LLM | OpenAI GPT-4o |
 | Web Search | Tavily (validation + chat), Rentcast (comps) |
+| Vector Search | ChromaDB (connector file semantic search) |
 | Excel Export | openpyxl |
 | Frontend | Next.js 16, React 19, TypeScript 5 |
 | Styling | Tailwind CSS 4, shadcn/ui, Radix UI |

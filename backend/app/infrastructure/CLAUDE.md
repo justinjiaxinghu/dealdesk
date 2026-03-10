@@ -17,7 +17,7 @@ SQLAlchemy 2.0 async with ORM models.
   - `update_processing_step()`: manages JSON array of processing steps on documents
   - `list_free()` on explorations/datasets: filter where `deal_id IS NULL`
 
-Repo files: `deal_repo`, `document_repo`, `extraction_repo`, `assumption_repo`, `export_repo`, `field_validation_repo`, `comp_repo`, `historical_financial_repo`, `exploration_repo`, `chat_repo`, `snapshot_repo`, `dataset_repo`
+Repo files: `deal_repo`, `document_repo`, `extraction_repo`, `assumption_repo`, `export_repo`, `field_validation_repo`, `comp_repo`, `historical_financial_repo`, `exploration_repo`, `chat_repo`, `snapshot_repo`, `dataset_repo`, `connector_repo`, `report_repo`
 
 ## LLM (`llm/`)
 
@@ -52,6 +52,13 @@ Comparable property search via multiple providers:
 ## File Storage (`file_storage/`)
 
 `LocalFileStorage` — filesystem-based storage at `DEALDESK_FILE_STORAGE_PATH`.
+
+## Connectors (`connectors/`)
+
+Cloud file storage integrations (OneDrive, Box, Google Drive, SharePoint) with mock data for dev.
+
+- **`mock_data.py`**: Hardcoded mock files per provider — realistic real estate documents (rent rolls, financials, purchase agreements, budgets, investor reports)
+- **`vector_store.py`**: ChromaDB integration for semantic search of connector files. Uses `PersistentClient` at `{file_storage_path}/.chroma` with cosine similarity. Functions: `index_files()`, `remove_files()`, `search()`.
 
 ## Export (`export/`)
 

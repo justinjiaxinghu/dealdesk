@@ -23,6 +23,11 @@ All entities are plain `@dataclass` with `uuid4()` default IDs and `datetime.utc
 | `ChatMessage` | session_id, role, content, tool_calls | ChatRole enum (user/assistant/tool) |
 | `Dataset` | deal_id (nullable), name, properties | Properties stored as list[dict]; deal-linked or standalone |
 | `Snapshot` | deal_id (nullable), name, session_data | Session state snapshot |
+| `Connector` | provider, status, file_count, connected_at | ConnectorProvider + ConnectorStatus enums |
+| `ConnectorFile` | connector_id, name, path, file_type, text_content, indexed_at | Files indexed in ChromaDB |
+| `ReportTemplate` | name, file_format, file_path, regions | FillableRegion list (detected placeholders) |
+| `ReportJob` | template_id, name, fills, status, output_file_path | ReportJobStatus enum (draft/completed) |
+| `FillableRegion` | region_id, label, sheet_or_slide, region_type, headers, row_count | Detected fillable area in template |
 
 ## Interfaces (`interfaces/`)
 
@@ -30,6 +35,8 @@ ABCs that infrastructure must implement:
 
 **Repositories** (`repositories.py`):
 `DealRepository`, `DocumentRepository`, `ExtractedFieldRepository`, `MarketTableRepository`, `AssumptionSetRepository`, `AssumptionRepository`, `ExportRepository`, `FieldValidationRepository`, `CompRepository`, `HistoricalFinancialRepository`, `ExplorationSessionRepository`, `ChatSessionRepository`, `ChatMessageRepository`, `SnapshotRepository`, `DatasetRepository`
+
+Note: Connector and Report repos are defined directly in infrastructure (not via domain interfaces) since they use concrete SQLAlchemy repos.
 
 **Providers** (`providers.py`):
 - `LLMProvider` — benchmarks, normalization, extraction, validation, historical financials
@@ -41,5 +48,5 @@ ABCs that infrastructure must implement:
 
 ## Value Objects (`value_objects/`)
 
-- `enums.py`: `PropertyType`, `ProcessingStatus`, `DocumentType`, `SourceType`, `ValidationStatus`, `ExportType`, `CompSource`, `HistoricalFinancialSource`, `AssumptionGroup`, `ForecastMethod`, `Cadence`, `ProcessingStepStatus`, `ChatRole`, `ConnectorType`
+- `enums.py`: `PropertyType`, `ProcessingStatus`, `DocumentType`, `SourceType`, `ValidationStatus`, `ExportType`, `CompSource`, `HistoricalFinancialSource`, `AssumptionGroup`, `ForecastMethod`, `Cadence`, `ProcessingStepStatus`, `ChatRole`, `ConnectorType`, `ConnectorProvider`, `ConnectorStatus`, `ReportFormat`, `ReportJobStatus`
 - `types.py`: Frozen dataclasses for cross-layer data transfer — `FieldValidationResult`, `BenchmarkSuggestion`, `NormalizedField`, `PageText`, `ValidationSource`, `QuickExtractResult`, `HistoricalFinancialResult`, `SearchResult`, `Location`, `RawField`, `ExtractedTable`, `ProcessingStep`

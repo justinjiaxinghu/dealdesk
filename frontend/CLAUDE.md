@@ -25,12 +25,14 @@ src/
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Deals list | Table of deals + saved explorations section |
+| `/` | Redirect | Redirects to `/explore` |
+| `/explore` | Market exploration | Main workspace — chat-driven property search with optional deal sidebar (OM upload) |
 | `/deals/new` | Create deal | PDF upload + quick-extract auto-fill form |
-| `/deals/[id]` | Deal workspace | Sidebar (summary, docs, assumptions, validations) + exploration chat pane |
-| `/explore` | Market exploration | Standalone chat-driven property search (no deal context) |
 | `/datasets` | Dataset list | Table of all datasets with property counts |
 | `/datasets/[id]` | Dataset detail | Dynamic property table, inline rename, add/remove properties |
+| `/connectors` | Connectors | Card-based connector management (OneDrive, Box, Google Drive, SharePoint) |
+| `/reports` | Reports | Template upload + fill job management |
+| `/reports/[id]/fill` | Report fill | Interactive copilot-powered region filling workflow |
 
 ## Conventions
 
@@ -45,7 +47,7 @@ src/
 
 ## Auto-Pipeline
 
-The deal workspace page (`app/deals/[id]/page.tsx`) runs an automatic pipeline after document upload:
+The explore workspace page (`app/explore/page.tsx`) runs an automatic pipeline after OM upload via the deal sidebar:
 
 1. **Extract**: Polls `documentService.list()` every 2s until all docs complete
 2. **Historical**: Calls `historicalFinancialService.extract()` for each completed doc
@@ -72,6 +74,8 @@ Pipeline state tracked via `pipelineStep` and `pipelineDetail` state variables.
 | `chat.service` | Chat session + message operations |
 | `dataset.service` | Dataset CRUD + add properties |
 | `snapshot.service` | Snapshot CRUD |
+| `connector.service` | Connector list, connect, disconnect |
+| `report.service` | Report template upload, job CRUD, download |
 
 ## Key Patterns
 
@@ -80,6 +84,10 @@ Pipeline state tracked via `pipelineStep` and `pipelineDetail` state variables.
 - **Add to Dataset**: Property cards have "Add to Dataset" dropdown — create new or add to existing
 - **Exploration reuse**: Free explorations (no deal) are reused across page visits via `listFree()` instead of creating new ones each mount
 - **Retry with backoff**: Deal exploration init retries up to 3 times with increasing delay
+- **Connector chips**: SearchBar shows toggleable chips for each connected source (Web Search always enabled, file connectors enabled when connected). Selected chips are passed as `connectors[]` in chat API calls.
+- **Session continuity**: Chat reuses active session for follow-up messages instead of creating a new session per message
+- **Pipeline guard**: Auto-pipeline checks if pipeline output already exists (fields, assumptions, validations) before re-running on discovery reopen
+- **Navigation**: Global header with links to Explore, Reports, Datasets, Connectors (in `layout.tsx`)
 
 ## Environment
 

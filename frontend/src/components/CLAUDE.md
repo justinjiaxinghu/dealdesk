@@ -6,7 +6,7 @@ Organized by domain. All are client components (`"use client"`).
 
 shadcn/ui components (Radix UI primitives + Tailwind). Do not edit directly — use `npx shadcn@latest add <component>` to add new ones.
 
-Components: Button, Input, Label, Card, Dialog, Tabs, Table, Badge, Textarea, Select
+Components: Button, Input, Label, Card, Dialog, Tabs, Table, Badge, Textarea, Select, FilterChip, Popover
 
 ## Domain Components
 
@@ -27,16 +27,15 @@ Components: Button, Input, Label, Card, Dialog, Tabs, Table, Badge, Textarea, Se
 | `sensitivity/` | `SensitivityTab` | Sensitivity analysis tab |
 | `sensitivity/` | `SensitivityTable` | Sensitivity data table |
 | `exploration/` | `SearchBar` | ChatGPT-style bottom-positioned input with auto-resize textarea, send button, connector chips |
-| `exploration/` | `SessionTabs` | Chat session dropdown selector + New Chat + Save/Bookmark button |
-| `exploration/` | `OverviewTab` | Overview/stats when no chat is active |
-| `exploration/` | `ChatThread` | Chat message list with auto-scroll, loading indicator |
+| `exploration/` | `SessionTabs` | Chat session dropdown selector + New Chat + Save/Bookmark + inline rename |
+| `exploration/` | `ChatThread` | Chat message list with auto-scroll, loading indicator with source pills |
 | `exploration/` | `UserMessage` | User message bubble |
 | `exploration/` | `AssistantMessage` | Assistant message with markdown rendering, property cards, detail modal, "Add to Dataset" button |
 | `exploration/` | `PropertyCard` | Compact property card in search results (clickable) |
 | `exploration/` | `PropertyModal` | Full property detail modal |
 | `exploration/` | `ComparisonToggle` | Toggle for comparison mode |
 | `exploration/` | `ComparisonChart` | Comparison chart visualization |
-| `layout/` | `DealSidebar` | Sidebar for deal workspace with deal summary, documents, assumptions, validations, historical financials |
+| `layout/` | `DealSidebar` | Sidebar for deal workspace with deal summary, documents, assumptions, validations, historical financials, pipeline progress banner |
 
 ## Patterns
 
@@ -45,4 +44,7 @@ Components: Button, Input, Label, Card, Dialog, Tabs, Table, Badge, Textarea, Se
 - **Property extraction**: `extractProperties()` parses ` ```properties ` fenced JSON blocks from assistant content into `PropertyData[]`
 - **Expandable rows**: `ValidationTable` uses `expandedId` state — one row expanded at a time
 - **Validation detail modal**: Sidebar validation rows are clickable buttons opening `ValidationDetailModal`
+- **Connector chips**: `SearchBar` renders toggleable `FilterChip` components for each connected source. Disabled chips shown for unconnected providers.
+- **Chat rename**: `SessionTabs` supports inline rename via pencil icon (hover to reveal). Enter commits, Escape cancels.
+- **Loading source pills**: `ChatThread` shows animated pills during loading indicating which sources are being queried (e.g., "OneDrive", "Web Search")
 - **No emoji** unless user explicitly requests it

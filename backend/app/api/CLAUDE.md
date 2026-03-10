@@ -4,7 +4,7 @@ FastAPI routes, Pydantic schemas, and dependency injection wiring. Thin translat
 
 ## Routes (`v1/`)
 
-All routes under `/v1` prefix. 14 route files:
+All routes under `/v1` prefix. 17 route files:
 
 | File | Routes | Notes |
 |------|--------|-------|
@@ -21,6 +21,9 @@ All routes under `/v1` prefix. 14 route files:
 | `chat.py` | `/explorations/{id}/sessions`, `/sessions/{id}/messages` | Chat session + message CRUD |
 | `datasets.py` | `/datasets`, `/deals/{id}/datasets` | CRUD + add properties + list free/by-deal |
 | `snapshots.py` | `/snapshots` | CRUD for session snapshots |
+| `connectors.py` | `/connectors` | List, connect, disconnect, file search |
+| `reports.py` | `/report-templates`, `/report-jobs` | Template upload, job CRUD, download |
+| `om_upload.py` | `/explorations/{id}/om-upload` | OM upload with quick-extract + background processing |
 
 ## Schemas (`schemas.py`)
 
