@@ -25,6 +25,7 @@ from app.infrastructure.document_processing.pdfplumber_processor import (
 from app.infrastructure.export.excel_exporter import OpenpyxlExcelExporter
 from app.infrastructure.file_storage.local import LocalFileStorage
 from app.infrastructure.llm.openai_provider import OpenAILLMProvider
+from app.infrastructure.search.market_search_provider import TavilyMarketSearchProvider
 
 _file_storage = LocalFileStorage()
 _document_processor = PdfPlumberProcessor()
@@ -39,6 +40,9 @@ _tavily_comps_provider = TavilyCompsProvider(
 _combined_comps_provider = CombinedCompsProvider(
     rentcast=_rentcast_provider,
     tavily=_tavily_comps_provider,
+)
+_market_search_provider = TavilyMarketSearchProvider(
+    tavily_api_key=settings.tavily_api_key,
 )
 
 
@@ -79,6 +83,10 @@ from app.infrastructure.persistence.field_validation_repo import (
 from app.infrastructure.persistence.historical_financial_repo import (
     SqlAlchemyHistoricalFinancialRepository,
 )
+from app.infrastructure.persistence.exploration_repo import SqlAlchemyExplorationSessionRepository
+from app.infrastructure.persistence.chat_repo import SqlAlchemyChatSessionRepository, SqlAlchemyChatMessageRepository
+from app.infrastructure.persistence.snapshot_repo import SqlAlchemySnapshotRepository
+from app.infrastructure.persistence.dataset_repo import SqlAlchemyDatasetRepository
 
 
 def get_deal_repo(session: DbSession) -> SqlAlchemyDealRepository:
@@ -121,6 +129,26 @@ def get_historical_financial_repo(session: DbSession) -> SqlAlchemyHistoricalFin
     return SqlAlchemyHistoricalFinancialRepository(session)
 
 
+def get_exploration_session_repo(session: DbSession) -> SqlAlchemyExplorationSessionRepository:
+    return SqlAlchemyExplorationSessionRepository(session)
+
+
+def get_chat_session_repo(session: DbSession) -> SqlAlchemyChatSessionRepository:
+    return SqlAlchemyChatSessionRepository(session)
+
+
+def get_chat_message_repo(session: DbSession) -> SqlAlchemyChatMessageRepository:
+    return SqlAlchemyChatMessageRepository(session)
+
+
+def get_snapshot_repo(session: DbSession) -> SqlAlchemySnapshotRepository:
+    return SqlAlchemySnapshotRepository(session)
+
+
+def get_dataset_repo(session: DbSession) -> SqlAlchemyDatasetRepository:
+    return SqlAlchemyDatasetRepository(session)
+
+
 # ---------------------------------------------------------------------------
 # Service factories (compose repos + providers)
 # ---------------------------------------------------------------------------
@@ -133,6 +161,17 @@ from app.services.export_service import ExportService
 from app.services.financial_model_service import FinancialModelService
 from app.services.historical_financial_service import HistoricalFinancialService
 from app.services.validation_service import ValidationService
+from app.services.chat_service import ChatService
+from app.infrastructure.persistence.connector_repo import (
+    SqlAlchemyConnectorRepository,
+    SqlAlchemyConnectorFileRepository,
+)
+from app.services.connector_service import ConnectorService
+from app.infrastructure.persistence.report_repo import (
+    SqlAlchemyReportTemplateRepository,
+    SqlAlchemyReportJobRepository,
+)
+from app.services.report_service import ReportService
 
 
 def get_deal_service(
@@ -264,5 +303,47 @@ def get_historical_financial_service(
         hf_repo=hf_repo,
         llm_provider=_llm_provider,
         document_processor=_document_processor,
+        file_storage=_file_storage,
+    )
+
+
+def get_connector_service(session: DbSession) -> ConnectorService:
+    return ConnectorService(
+        connector_repo=SqlAlchemyConnectorRepository(session),
+        file_repo=SqlAlchemyConnectorFileRepository(session),
+    )
+
+
+def get_chat_service(
+    exploration_repo: Annotated[SqlAlchemyExplorationSessionRepository, Depends(get_exploration_session_repo)],
+    chat_session_repo: Annotated[SqlAlchemyChatSessionRepository, Depends(get_chat_session_repo)],
+    chat_message_repo: Annotated[SqlAlchemyChatMessageRepository, Depends(get_chat_message_repo)],
+    deal_repo: Annotated[SqlAlchemyDealRepository, Depends(get_deal_repo)],
+    extracted_field_repo: Annotated[SqlAlchemyExtractedFieldRepository, Depends(get_extracted_field_repo)],
+    assumption_set_repo: Annotated[SqlAlchemyAssumptionSetRepository, Depends(get_assumption_set_repo)],
+    assumption_repo: Annotated[SqlAlchemyAssumptionRepository, Depends(get_assumption_repo)],
+    validation_repo: Annotated[SqlAlchemyFieldValidationRepository, Depends(get_field_validation_repo)],
+    connector_service: Annotated[ConnectorService, Depends(get_connector_service)],
+) -> ChatService:
+    return ChatService(
+        exploration_repo=exploration_repo,
+        chat_session_repo=chat_session_repo,
+        chat_message_repo=chat_message_repo,
+        deal_repo=deal_repo,
+        extracted_field_repo=extracted_field_repo,
+        assumption_set_repo=assumption_set_repo,
+        assumption_repo=assumption_repo,
+        validation_repo=validation_repo,
+        market_search_provider=_market_search_provider,
+        openai_api_key=settings.openai_api_key,
+        openai_model=settings.openai_model,
+        connector_service=connector_service,
+    )
+
+
+def get_report_service(session: DbSession) -> ReportService:
+    return ReportService(
+        template_repo=SqlAlchemyReportTemplateRepository(session),
+        job_repo=SqlAlchemyReportJobRepository(session),
         file_storage=_file_storage,
     )

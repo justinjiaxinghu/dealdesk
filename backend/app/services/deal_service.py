@@ -32,6 +32,7 @@ class DealService:
         latitude: float | None = None,
         longitude: float | None = None,
         square_feet: float | None = None,
+        tags: list[str] | None = None,
     ) -> Deal:
         deal = Deal(
             name=name,
@@ -42,6 +43,7 @@ class DealService:
             latitude=latitude,
             longitude=longitude,
             square_feet=square_feet,
+            tags=tags or [],
         )
         deal = await self._deal_repo.create(deal)
 

@@ -8,6 +8,7 @@ export interface Deal {
   latitude: number | null;
   longitude: number | null;
   square_feet: number | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -205,4 +206,94 @@ export interface SensitivityResponse {
   grids: Record<string, (number | null)[][]>;
   x_axis: SensitivityAxis;
   y_axis: SensitivityAxis;
+}
+
+// --- Exploration ---
+
+export interface ExplorationSession {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  saved: boolean;
+  tags: string[];
+  created_at: string;
+}
+
+// --- Chat ---
+
+export interface ChatSession {
+  id: string;
+  exploration_session_id: string;
+  title: string;
+  connectors: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  tool_calls: Record<string, unknown>[] | null;
+  created_at: string;
+}
+
+// --- Dataset ---
+
+export interface Dataset {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  properties: Record<string, unknown>[];
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Connector ---
+
+export interface Connector {
+  id: string;
+  provider: string;
+  status: "connected" | "disconnected";
+  file_count: number;
+  connected_at: string | null;
+}
+
+// --- Report ---
+
+export interface FillableRegion {
+  region_id: string;
+  label: string;
+  sheet_or_slide: string;
+  region_type: string;
+  headers: string[];
+  row_count: number;
+}
+
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  file_format: string;
+  regions: FillableRegion[];
+  created_at: string;
+}
+
+export interface ReportJob {
+  id: string;
+  template_id: string;
+  name: string;
+  fills: Record<string, unknown>;
+  status: string;
+  created_at: string;
+}
+
+// --- Snapshot ---
+
+export interface Snapshot {
+  id: string;
+  deal_id: string | null;
+  name: string;
+  session_data: Record<string, unknown>;
+  created_at: string;
 }

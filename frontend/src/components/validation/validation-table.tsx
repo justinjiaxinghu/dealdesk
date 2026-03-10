@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { FieldValidation } from "@/interfaces/api";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -65,9 +65,8 @@ export function ValidationTable({ validations }: ValidationTableProps) {
               STATUS_CONFIG[v.status] ?? STATUS_CONFIG.insufficient_data;
             const isExpanded = expandedId === v.id;
             return (
-              <>
+              <Fragment key={v.id}>
                 <TableRow
-                  key={v.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() =>
                     setExpandedId(isExpanded ? null : v.id)
@@ -154,7 +153,7 @@ export function ValidationTable({ validations }: ValidationTableProps) {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </TableBody>

@@ -68,8 +68,17 @@ export function useDeal(id: string) {
       setLoading(true);
     }
     try {
+      // Retry deal fetch once — handles race when deal was just created
+      const fetchDeal = async () => {
+        try {
+          return await dealService.get(id);
+        } catch {
+          await new Promise((r) => setTimeout(r, 500));
+          return await dealService.get(id);
+        }
+      };
       const [dealData, docs, sets, vals, compsData, historicalsData] = await Promise.all([
-        dealService.get(id),
+        fetchDeal(),
         documentService.list(id),
         assumptionService.listSets(id),
         validationService.list(id),

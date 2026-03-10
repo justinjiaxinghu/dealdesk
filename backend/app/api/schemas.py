@@ -29,6 +29,7 @@ class CreateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] = []
 
 
 class UpdateDealRequest(BaseModel):
@@ -40,6 +41,7 @@ class UpdateDealRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] | None = None
 
 
 class DealResponse(BaseModel):
@@ -54,6 +56,7 @@ class DealResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     square_feet: float | None = None
+    tags: list[str] = []
     created_at: datetime
     updated_at: datetime
 
@@ -328,4 +331,170 @@ class CompResponse(BaseModel):
     expense_ratio: float | None = None
     opex_per_unit: float | None = None
     fetched_at: datetime
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Exploration
+# ---------------------------------------------------------------------------
+
+
+class CreateExplorationRequest(BaseModel):
+    name: str = "Untitled Discovery"
+    tags: list[str] = []
+
+
+class ExplorationSessionResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    saved: bool
+    tags: list[str] = []
+    created_at: datetime
+
+
+class UpdateExplorationRequest(BaseModel):
+    name: str | None = None
+    saved: bool | None = None
+    tags: list[str] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Chat Sessions
+# ---------------------------------------------------------------------------
+
+
+class CreateChatSessionRequest(BaseModel):
+    title: str = "New Search"
+    connectors: list[str] = []
+
+
+class ChatSessionResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    exploration_session_id: UUID
+    title: str
+    connectors: list[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+class UpdateChatSessionRequest(BaseModel):
+    title: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Chat Messages
+# ---------------------------------------------------------------------------
+
+
+class SendMessageRequest(BaseModel):
+    content: str
+    connectors: list[str] = []
+
+
+class ChatMessageResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    session_id: UUID
+    role: str
+    content: str
+    tool_calls: list[dict] | None = None
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Snapshots
+# ---------------------------------------------------------------------------
+
+
+class CreateSnapshotRequest(BaseModel):
+    name: str
+
+
+class SnapshotResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    session_data: dict
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+
+
+class CreateDatasetRequest(BaseModel):
+    name: str
+    deal_id: UUID | None = None
+    properties: list[dict] = []
+
+
+class UpdateDatasetRequest(BaseModel):
+    name: str | None = None
+    deal_id: UUID | None = None
+    properties: list[dict] | None = None
+
+
+class AddPropertiesRequest(BaseModel):
+    properties: list[dict]
+
+
+class DatasetResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    deal_id: UUID | None
+    name: str
+    properties: list[dict]
+    created_at: datetime
+    updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Connectors
+# ---------------------------------------------------------------------------
+
+
+class ConnectorResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    provider: str
+    status: str
+    file_count: int
+    connected_at: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+
+class ReportTemplateResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    name: str
+    file_format: str
+    regions: list[dict]
+    created_at: datetime
+
+
+class CreateReportJobRequest(BaseModel):
+    template_id: str
+    name: str
+
+
+class UpdateReportJobRequest(BaseModel):
+    fills: dict
+
+
+class ReportJobResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    id: str
+    template_id: str
+    name: str
+    fills: dict
+    status: str
     created_at: datetime

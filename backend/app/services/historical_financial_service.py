@@ -1,6 +1,7 @@
 from __future__ import annotations
 from uuid import UUID
 from app.domain.entities.historical_financial import HistoricalFinancial
+from app.domain.value_objects.enums import HistoricalFinancialSource
 from app.domain.interfaces.providers import DocumentProcessor, FileStorage, LLMProvider
 from app.domain.interfaces.repositories import (
     DealRepository,
@@ -45,7 +46,7 @@ class HistoricalFinancialService:
                 metric_key=r.metric_key,
                 value=r.value,
                 unit=r.unit,
-                source="extracted",
+                source=HistoricalFinancialSource.EXTRACTED,
             )
             for r in results
         ]

@@ -18,6 +18,8 @@ from app.domain.value_objects import (
     RawField,
     ValidationSource,
 )
+from app.domain.value_objects.enums import ConnectorType
+from app.domain.value_objects.types import SearchResult
 
 
 class DocumentProcessor(ABC):
@@ -88,3 +90,13 @@ class CompsProvider(ABC):
         deal: Deal,
         extracted_fields: list[ExtractedField],
     ) -> list[Comp]: ...
+
+
+class MarketSearchProvider(ABC):
+    @abstractmethod
+    async def search(
+        self,
+        query: str,
+        connectors: list[ConnectorType],
+        deal: Deal | None = None,
+    ) -> list[SearchResult]: ...

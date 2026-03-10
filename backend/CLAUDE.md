@@ -41,4 +41,27 @@ infrastructure/ ──────┘ (implements domain interfaces)
 - Async throughout: SQLAlchemy async sessions, `asyncio.to_thread()` for sync ops (pdfplumber)
 - Background tasks via FastAPI `BackgroundTasks` (document processing pipeline)
 - Repos are per-session — constructed from session in `dependencies.py`
-- Providers (LLM, file storage, etc.) are singletons — constructed once at module level
+- Providers (LLM, file storage, comps, search) are singletons — constructed once at module level
+- Auto table creation on startup via `Base.metadata.create_all` (dev); use Alembic for prod
+
+## Key Dependencies
+
+- FastAPI >= 0.115, SQLAlchemy[asyncio] >= 2.0, Pydantic >= 2.10
+- openai >= 1.60, tavily-python >= 0.5, pdfplumber >= 0.11
+- openpyxl >= 3.1, aiofiles >= 24.1, chromadb >= 0.4
+- Dev: pytest >= 8.0, pytest-asyncio >= 0.24, httpx >= 0.28, aiosqlite >= 0.20
+
+## Services
+
+| Service | Purpose |
+|---------|---------|
+| `deal_service` | Deal CRUD |
+| `document_service` | Upload, processing pipeline, extraction |
+| `chat_service` | Agentic chat with dynamic tool selection (web_search + connected_files_search) |
+| `connector_service` | Cloud storage connector lifecycle (connect/disconnect/search via ChromaDB) |
+| `report_service` | Report template parsing, fill detection, job management |
+| `benchmark_service` | AI benchmark generation |
+| `comps_service` | Comparable property search |
+| `validation_service` | OM field validation (quick + deep phases) |
+| `financial_model_service` | DCF projection + sensitivity analysis |
+| `historical_financial_service` | Historical financial extraction |

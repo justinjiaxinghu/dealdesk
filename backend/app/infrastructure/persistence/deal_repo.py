@@ -54,6 +54,7 @@ class SqlAlchemyDealRepository(DealRepository):
         model.latitude = deal.latitude
         model.longitude = deal.longitude
         model.square_feet = deal.square_feet
+        model.tags = deal.tags
         model.updated_at = datetime.utcnow()
         await self._session.flush()
         await self._session.refresh(model)

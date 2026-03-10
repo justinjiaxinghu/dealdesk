@@ -3,6 +3,7 @@ from datetime import date
 from uuid import UUID
 from app.domain.interfaces.repositories import AssumptionRepository
 from app.domain.services.dcf import ProjectionParams, ProjectionResult, compute_projection
+from app.domain.value_objects.enums import Cadence, ForecastMethod
 
 
 class FinancialModelService:
@@ -25,8 +26,8 @@ class FinancialModelService:
         def v(key: str, default: float = 0.0) -> float:
             return float(vals.get(key, default))
 
-        def fm(key: str) -> tuple[str, dict]:
-            return forecast.get(key, ("historical", {}))
+        def fm(key: str) -> tuple[ForecastMethod, dict]:
+            return forecast.get(key, (ForecastMethod.HISTORICAL, {}))
 
         rev_method, rev_params = fm("base_gross_revenue")
         exp_method, exp_params = fm("base_expense_ratio")
@@ -34,7 +35,7 @@ class FinancialModelService:
         return ProjectionParams(
             start_date=date.today(),
             periods=int(v("projection_periods", 5)),
-            cadence="annual",
+            cadence=Cadence.ANNUAL,
             purchase_price=v("purchase_price"),
             ltv=v("ltv", 0.70),
             closing_costs=v("closing_costs"),

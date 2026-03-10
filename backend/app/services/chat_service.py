@@ -1,0 +1,353 @@
+from __future__ import annotations
+
+import json
+import logging
+from uuid import UUID
+
+from openai import AsyncOpenAI
+
+from app.domain.entities.chat import ChatMessage, ChatSession
+from app.domain.entities.deal import Deal
+from app.domain.entities.exploration import ExplorationSession
+from app.domain.interfaces.providers import MarketSearchProvider
+from app.domain.interfaces.repositories import (
+    ChatMessageRepository,
+    ChatSessionRepository,
+    DealRepository,
+    ExplorationSessionRepository,
+    ExtractedFieldRepository,
+    AssumptionRepository,
+    AssumptionSetRepository,
+    FieldValidationRepository,
+)
+from app.domain.value_objects.enums import ChatRole, ConnectorType
+from app.services.connector_service import ConnectorService
+
+logger = logging.getLogger(__name__)
+
+MAX_TOOL_ROUNDS = 10
+
+TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web for real estate market data, property listings, comps, supply pipeline, and market trends.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "connected_files_search",
+            "description": "Search across the user's connected file storage (OneDrive, Box, Google Drive, SharePoint) for documents matching a query. Use this when the user asks about their own files, internal documents, rent rolls, financial statements, or any data from their connected sources.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to find relevant files",
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": "Optional: filter by provider (onedrive, box, google_drive, sharepoint)",
+                        "enum": ["onedrive", "box", "google_drive", "sharepoint"],
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+]
+
+PROPERTY_FORMAT_INSTRUCTIONS = """
+When you find comparable properties or listings, you MUST include a fenced JSON block tagged ```properties at the end of your response with structured data for each property. Example:
+
+```properties
+[
+  {{"address": "123 Main St, City, ST", "property_type": "Multifamily", "cap_rate": 0.055, "rent_per_unit": 1250, "sale_price": 5200000, "noi": 286000, "year_built": 1998, "unit_count": 48, "square_feet": 42000, "occupancy_rate": 0.94, "vacancy_rate": 0.06, "expense_ratio": 0.45, "opex_per_unit": 4200, "price_per_unit": 108333, "price_per_sqft": 124, "source_url": "https://example.com/listing"}},
+  {{"address": "456 Oak Ave, City, ST", "property_type": "Multifamily", "cap_rate": 0.062}}
+]
+```
+
+Available fields: address, property_type, cap_rate, noi, sale_price, rent_per_unit, rent_per_sqft, occupancy_rate, vacancy_rate, expense_ratio, opex_per_unit, price_per_unit, price_per_sqft, capex, capex_per_unit, unit_count, square_feet, year_built, source_url, notes.
+Include as many fields as you have data for. Numeric values should be raw numbers (rates as decimals like 0.055, not 5.5%). Always include at least address and property_type. This block must be valid JSON."""
+
+SYSTEM_PROMPT_DEAL = """You are a real estate market intelligence assistant analyzing a specific deal.
+
+Deal Context:
+{deal_context}
+
+All research should be contextualized against this subject property. When returning property results, always note how they compare to the subject deal. Use the web_search tool to find market data, comparable properties, and validate assumptions.
+""" + PROPERTY_FORMAT_INSTRUCTIONS + """
+Respond in markdown format."""
+
+SYSTEM_PROMPT_FREE = """You are a real estate market intelligence assistant.
+
+The user is exploring the market without a specific deal. Help them research properties, find comps, understand market trends, and discover opportunities. Use the web_search tool to find relevant data.
+""" + PROPERTY_FORMAT_INSTRUCTIONS + """
+Respond in markdown format."""
+
+
+class ChatService:
+    def __init__(
+        self,
+        exploration_repo: ExplorationSessionRepository,
+        chat_session_repo: ChatSessionRepository,
+        chat_message_repo: ChatMessageRepository,
+        deal_repo: DealRepository,
+        extracted_field_repo: ExtractedFieldRepository,
+        assumption_set_repo: AssumptionSetRepository,
+        assumption_repo: AssumptionRepository,
+        validation_repo: FieldValidationRepository,
+        market_search_provider: MarketSearchProvider,
+        openai_api_key: str,
+        openai_model: str,
+        connector_service: ConnectorService | None = None,
+    ) -> None:
+        self._exploration_repo = exploration_repo
+        self._chat_session_repo = chat_session_repo
+        self._chat_message_repo = chat_message_repo
+        self._deal_repo = deal_repo
+        self._extracted_field_repo = extracted_field_repo
+        self._assumption_set_repo = assumption_set_repo
+        self._assumption_repo = assumption_repo
+        self._validation_repo = validation_repo
+        self._search_provider = market_search_provider
+        self._connector_service = connector_service
+        self._openai = AsyncOpenAI(api_key=openai_api_key)
+        self._model = openai_model
+
+    async def _build_deal_context(self, deal: Deal) -> str:
+        lines = [
+            f"Name: {deal.name}",
+            f"Property Type: {deal.property_type.value}",
+            f"Location: {deal.address}, {deal.city}, {deal.state}",
+        ]
+        if deal.square_feet:
+            lines.append(f"Square Feet: {deal.square_feet:,.0f}")
+
+        sets = await self._assumption_set_repo.get_by_deal_id(deal.id)
+        if sets:
+            assumptions = await self._assumption_repo.get_by_set_id(sets[0].id)
+            if assumptions:
+                lines.append("\nKey Assumptions:")
+                for a in assumptions[:10]:
+                    lines.append(f"  {a.key}: {a.value_number} {a.unit or ''}")
+
+        return "\n".join(lines)
+
+    async def send_message(
+        self,
+        session_id: UUID,
+        user_content: str,
+        connectors: list[ConnectorType],
+        raw_connectors: list[str] | None = None,
+    ) -> list[ChatMessage]:
+        chat_session = await self._chat_session_repo.get_by_id(session_id)
+        if chat_session is None:
+            raise ValueError(f"ChatSession {session_id} not found")
+
+        exploration = await self._exploration_repo.get_by_id(
+            chat_session.exploration_session_id
+        )
+        if exploration is None:
+            raise ValueError("ExplorationSession not found")
+
+        # Persist user message
+        user_msg = ChatMessage(
+            session_id=session_id,
+            role=ChatRole.USER,
+            content=user_content,
+        )
+        user_msg = await self._chat_message_repo.create(user_msg)
+
+        # Build system prompt
+        deal: Deal | None = None
+        if exploration.deal_id:
+            deal = await self._deal_repo.get_by_id(exploration.deal_id)
+
+        if deal:
+            deal_context = await self._build_deal_context(deal)
+            system_prompt = SYSTEM_PROMPT_DEAL.format(deal_context=deal_context)
+        else:
+            system_prompt = SYSTEM_PROMPT_FREE
+
+        # Build source instructions and tool list based on user-selected connectors
+        raw = raw_connectors or []
+        has_web = "tavily" in raw
+        file_providers = [
+            c for c in raw
+            if c in ("onedrive", "box", "google_drive", "sharepoint")
+        ]
+        has_files = bool(file_providers) and self._connector_service is not None
+
+        # Build tool list based on selections
+        active_tools = []
+        source_instructions = []
+        if has_web:
+            active_tools.append(TOOL_DEFINITIONS[0])  # web_search
+            source_instructions.append("Use the web_search tool to find market data from the internet. Label these results with 'Source: Web'.")
+        if has_files:
+            active_tools.append(TOOL_DEFINITIONS[1])  # connected_files_search
+            provider_names = ", ".join(p.replace("_", " ").title() for p in file_providers)
+            source_instructions.append(
+                f"Use the connected_files_search tool to search the user's connected files ({provider_names}). "
+                f"Label these results with 'Source: [Provider Name]' (e.g., 'Source: OneDrive')."
+            )
+
+        if source_instructions:
+            system_prompt += "\n\nSOURCE INSTRUCTIONS:\n" + "\n".join(source_instructions)
+            if has_web and has_files:
+                system_prompt += (
+                    "\n\nCRITICAL: You MUST call EVERY available tool for EVERY query. "
+                    "Do NOT skip any tool. Always call both web_search AND connected_files_search "
+                    "before composing your response. Combine and contrast insights from all sources. "
+                    "If a source returns no results, mention that explicitly."
+                )
+
+        # Fall back to all tools if nothing selected
+        if not active_tools:
+            active_tools = TOOL_DEFINITIONS
+
+        # Load conversation history
+        history = await self._chat_message_repo.get_by_session_id(session_id)
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        for msg in history:
+            if msg.role == ChatRole.TOOL:
+                messages.append({
+                    "role": "tool",
+                    "content": msg.content,
+                    "tool_call_id": (msg.tool_calls or [{}])[0].get("id", ""),
+                })
+            elif msg.role == ChatRole.ASSISTANT and msg.tool_calls:
+                # Ensure each tool_call has "type": "function" (required by OpenAI API)
+                tool_calls = [
+                    {**tc, "type": tc.get("type", "function")}
+                    for tc in msg.tool_calls
+                ]
+                messages.append({
+                    "role": "assistant",
+                    "content": msg.content or None,
+                    "tool_calls": tool_calls,
+                })
+            else:
+                messages.append({
+                    "role": msg.role.value,
+                    "content": msg.content,
+                })
+
+        # Agentic loop
+        new_messages: list[ChatMessage] = [user_msg]
+        for _ in range(MAX_TOOL_ROUNDS):
+            response = await self._openai.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                tools=active_tools,
+            )
+            choice = response.choices[0]
+
+            if choice.finish_reason == "tool_calls":
+                # Persist assistant message with tool calls
+                tool_calls_data = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in choice.message.tool_calls
+                ]
+                assistant_msg = ChatMessage(
+                    session_id=session_id,
+                    role=ChatRole.ASSISTANT,
+                    content=choice.message.content or "",
+                    tool_calls=tool_calls_data,
+                )
+                assistant_msg = await self._chat_message_repo.create(assistant_msg)
+                new_messages.append(assistant_msg)
+                messages.append({
+                    "role": "assistant",
+                    "content": choice.message.content or None,
+                    "tool_calls": tool_calls_data,
+                })
+
+                # Execute each tool call
+                for tc in choice.message.tool_calls:
+                    args = json.loads(tc.function.arguments)
+                    if tc.function.name == "web_search":
+                        results = await self._search_provider.search(
+                            query=args["query"],
+                            connectors=connectors,
+                            deal=deal,
+                        )
+                        tool_result = json.dumps(
+                            [
+                                {
+                                    "title": r.title,
+                                    "url": r.url,
+                                    "snippet": r.snippet,
+                                }
+                                for r in results
+                            ],
+                            indent=2,
+                        )
+                    elif tc.function.name == "connected_files_search":
+                        query = args.get("query", "")
+                        provider = args.get("provider")
+                        if self._connector_service:
+                            files = await self._connector_service.search_files(query, provider)
+                            tool_result = json.dumps([
+                                {
+                                    "name": f.name,
+                                    "path": f.path,
+                                    "file_type": f.file_type,
+                                    "relevant_content": f.text_content,
+                                    "source_provider": f.path.split("/")[1] if "/" in f.path else (provider or "Connected Files"),
+                                    "source": "connected_files",
+                                }
+                                for f in files
+                            ])
+                        else:
+                            tool_result = json.dumps({"error": "No connector service available"})
+                    else:
+                        tool_result = json.dumps(
+                            {"error": f"Unknown tool: {tc.function.name}"}
+                        )
+
+                    tool_msg = ChatMessage(
+                        session_id=session_id,
+                        role=ChatRole.TOOL,
+                        content=tool_result,
+                        tool_calls=[{"id": tc.id}],
+                    )
+                    tool_msg = await self._chat_message_repo.create(tool_msg)
+                    new_messages.append(tool_msg)
+                    messages.append({
+                        "role": "tool",
+                        "content": tool_result,
+                        "tool_call_id": tc.id,
+                    })
+            else:
+                # Final response
+                final_msg = ChatMessage(
+                    session_id=session_id,
+                    role=ChatRole.ASSISTANT,
+                    content=choice.message.content or "",
+                )
+                final_msg = await self._chat_message_repo.create(final_msg)
+                new_messages.append(final_msg)
+                break
+
+        return new_messages

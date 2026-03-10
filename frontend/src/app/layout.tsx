@@ -29,10 +29,24 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <header className="border-b">
-          <div className="container mx-auto px-4 h-14 flex items-center">
+          <div className="container mx-auto px-4 h-14 flex items-center gap-6">
             <Link href="/" className="text-xl font-bold tracking-tight">
               DealDesk
             </Link>
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
+                Explore
+              </Link>
+              <Link href="/reports" className="text-muted-foreground hover:text-foreground transition-colors">
+                Reports
+              </Link>
+              <Link href="/datasets" className="text-muted-foreground hover:text-foreground transition-colors">
+                Datasets
+              </Link>
+              <Link href="/connectors" className="text-muted-foreground hover:text-foreground transition-colors">
+                Connectors
+              </Link>
+            </nav>
           </div>
         </header>
         <main className="container mx-auto px-4 py-6">{children}</main>

@@ -1,5 +1,5 @@
 from app.domain.entities.assumption import Assumption
-from app.domain.value_objects.enums import AssumptionGroup, SourceType
+from app.domain.value_objects.enums import AssumptionGroup, ForecastMethod, SourceType
 from uuid import uuid4
 
 
@@ -24,8 +24,8 @@ def test_assumption_has_forecast_fields():
         key="occupancy_rate",
         value_number=0.95,
         group=AssumptionGroup.OPERATING,
-        forecast_method="gradual_ramp",
+        forecast_method=ForecastMethod.GRADUAL_RAMP,
         forecast_params={"target_value": 0.97},
     )
-    assert a.forecast_method == "gradual_ramp"
+    assert a.forecast_method == ForecastMethod.GRADUAL_RAMP
     assert a.forecast_params == {"target_value": 0.97}

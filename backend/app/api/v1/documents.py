@@ -7,13 +7,16 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 
-from app.api.dependencies import get_document_service
+from app.api.dependencies import get_document_service, get_document_repo
 from app.api.schemas import (
     DocumentResponse,
     ExtractedFieldResponse,
     MarketTableResponse,
 )
+from app.infrastructure.file_storage.local import LocalFileStorage
+from app.infrastructure.persistence.document_repo import SqlAlchemyDocumentRepository
 from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/deals/{deal_id}/documents", tags=["documents"])
@@ -59,6 +62,38 @@ async def get_document(
             detail=f"Document {document_id} not found",
         )
     return DocumentResponse.model_validate(doc)
+
+
+@router.get("/{document_id}/pdf")
+async def download_pdf(
+    deal_id: UUID,
+    document_id: UUID,
+    repo: Annotated[SqlAlchemyDocumentRepository, Depends(get_document_repo)],
+) -> FileResponse:
+    doc = await repo.get_by_id(document_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found",
+        )
+    file_storage = LocalFileStorage()
+    try:
+        file_path = await file_storage.retrieve(doc.file_path)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF file not found on disk",
+        )
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF file not found on disk",
+        )
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/pdf",
+        filename=doc.original_filename,
+    )
 
 
 @router.get("/{document_id}/fields", response_model=list[ExtractedFieldResponse])

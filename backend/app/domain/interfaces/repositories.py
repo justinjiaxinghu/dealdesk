@@ -14,6 +14,10 @@ from app.domain.entities import (
 from app.domain.entities.comp import Comp
 from app.domain.entities.field_validation import FieldValidation
 from app.domain.entities.historical_financial import HistoricalFinancial
+from app.domain.entities.exploration import ExplorationSession
+from app.domain.entities.chat import ChatSession, ChatMessage
+from app.domain.entities.snapshot import Snapshot
+from app.domain.entities.dataset import Dataset
 from app.domain.value_objects import DealFilters, ProcessingStep
 
 
@@ -126,3 +130,94 @@ class HistoricalFinancialRepository(ABC):
 
     @abstractmethod
     async def get_by_deal_id(self, deal_id: UUID) -> list[HistoricalFinancial]: ...
+
+
+class ExplorationSessionRepository(ABC):
+    @abstractmethod
+    async def create(self, session: ExplorationSession) -> ExplorationSession: ...
+
+    @abstractmethod
+    async def get_by_id(self, session_id: UUID) -> ExplorationSession | None: ...
+
+    @abstractmethod
+    async def list_saved(self) -> list[ExplorationSession]: ...
+
+    @abstractmethod
+    async def list_free(self) -> list[ExplorationSession]: ...
+
+    @abstractmethod
+    async def list_by_deal_id(self, deal_id: UUID) -> list[ExplorationSession]: ...
+
+    @abstractmethod
+    async def update(self, session: ExplorationSession) -> ExplorationSession: ...
+
+    @abstractmethod
+    async def delete(self, session_id: UUID) -> None: ...
+
+
+class ChatSessionRepository(ABC):
+    @abstractmethod
+    async def create(self, session: ChatSession) -> ChatSession: ...
+
+    @abstractmethod
+    async def get_by_id(self, session_id: UUID) -> ChatSession | None: ...
+
+    @abstractmethod
+    async def get_by_exploration_id(self, exploration_id: UUID) -> list[ChatSession]: ...
+
+    @abstractmethod
+    async def update(self, session: ChatSession) -> ChatSession: ...
+
+    @abstractmethod
+    async def delete(self, session_id: UUID) -> None: ...
+
+
+class ChatMessageRepository(ABC):
+    @abstractmethod
+    async def create(self, message: ChatMessage) -> ChatMessage: ...
+
+    @abstractmethod
+    async def get_by_session_id(self, session_id: UUID) -> list[ChatMessage]: ...
+
+    @abstractmethod
+    async def bulk_create(self, messages: list[ChatMessage]) -> list[ChatMessage]: ...
+
+
+class SnapshotRepository(ABC):
+    @abstractmethod
+    async def create(self, snapshot: Snapshot) -> Snapshot: ...
+
+    @abstractmethod
+    async def get_by_id(self, snapshot_id: UUID) -> Snapshot | None: ...
+
+    @abstractmethod
+    async def list_all(self) -> list[Snapshot]: ...
+
+    @abstractmethod
+    async def list_by_deal_id(self, deal_id: UUID) -> list[Snapshot]: ...
+
+    @abstractmethod
+    async def delete(self, snapshot_id: UUID) -> None: ...
+
+
+class DatasetRepository(ABC):
+    @abstractmethod
+    async def create(self, dataset: Dataset) -> Dataset: ...
+
+    @abstractmethod
+    async def get_by_id(self, dataset_id: UUID) -> Dataset | None: ...
+
+    @abstractmethod
+    async def list_all(self) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def list_by_deal_id(self, deal_id: UUID) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def list_free(self) -> list[Dataset]: ...
+
+    @abstractmethod
+    async def update(self, dataset: Dataset) -> Dataset: ...
+
+    @abstractmethod
+    async def delete(self, dataset_id: UUID) -> None: ...

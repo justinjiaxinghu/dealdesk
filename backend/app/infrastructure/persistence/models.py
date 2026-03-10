@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
+    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -56,6 +58,7 @@ class DealModel(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     square_feet: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )
@@ -356,3 +359,172 @@ class HistoricalFinancialModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     deal = relationship("DealModel", back_populates="historical_financials")
+
+
+# ---------------------------------------------------------------------------
+# Exploration Sessions
+# ---------------------------------------------------------------------------
+
+
+class ExplorationSessionModel(Base):
+    __tablename__ = "exploration_sessions"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    saved = Column(Boolean, nullable=False, default=False)
+    tags = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="exploration_sessions")
+    chat_sessions = relationship(
+        "ChatSessionModel", back_populates="exploration_session", lazy="selectin"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chat Sessions
+# ---------------------------------------------------------------------------
+
+
+class ChatSessionModel(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(UUIDType, primary_key=True)
+    exploration_session_id = Column(
+        UUIDType, ForeignKey("exploration_sessions.id"), nullable=False, index=True
+    )
+    title = Column(String, nullable=False)
+    connectors = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    exploration_session = relationship(
+        "ExplorationSessionModel", back_populates="chat_sessions"
+    )
+    messages = relationship(
+        "ChatMessageModel",
+        back_populates="chat_session",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chat Messages
+# ---------------------------------------------------------------------------
+
+
+class ChatMessageModel(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(UUIDType, primary_key=True)
+    session_id = Column(
+        UUIDType, ForeignKey("chat_sessions.id"), nullable=False, index=True
+    )
+    role = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    tool_calls = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+    chat_session = relationship("ChatSessionModel", back_populates="messages")
+
+
+# ---------------------------------------------------------------------------
+# Snapshots
+# ---------------------------------------------------------------------------
+
+
+class SnapshotModel(Base):
+    __tablename__ = "snapshots"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    session_data = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="snapshots")
+
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+
+
+class DatasetModel(Base):
+    __tablename__ = "datasets"
+
+    id = Column(UUIDType, primary_key=True)
+    deal_id = Column(UUIDType, ForeignKey("deals.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    properties = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    deal = relationship("DealModel", backref="datasets")
+
+
+# ---------------------------------------------------------------------------
+# Connectors
+# ---------------------------------------------------------------------------
+
+
+class ConnectorModel(Base):
+    __tablename__ = "connectors"
+
+    id = Column(UUIDType, primary_key=True)
+    provider = Column(String, nullable=False, unique=True)
+    status = Column(String, nullable=False, default="disconnected")
+    file_count = Column(Integer, nullable=False, default=0)
+    connected_at = Column(DateTime, nullable=True)
+
+    files = relationship(
+        "ConnectorFileModel", back_populates="connector", cascade="all, delete-orphan"
+    )
+
+
+class ConnectorFileModel(Base):
+    __tablename__ = "connector_files"
+
+    id = Column(UUIDType, primary_key=True)
+    connector_id = Column(UUIDType, ForeignKey("connectors.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)
+    text_content = Column(Text, nullable=False)
+    indexed_at = Column(DateTime, nullable=False)
+
+    connector = relationship("ConnectorModel", back_populates="files")
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+
+class ReportTemplateModel(Base):
+    __tablename__ = "report_templates"
+
+    id = Column(UUIDType, primary_key=True)
+    name = Column(String, nullable=False)
+    file_format = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    regions = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False)
+
+    jobs = relationship("ReportJobModel", back_populates="template", cascade="all, delete-orphan")
+
+
+class ReportJobModel(Base):
+    __tablename__ = "report_jobs"
+
+    id = Column(UUIDType, primary_key=True)
+    template_id = Column(UUIDType, ForeignKey("report_templates.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    fills = Column(JSON, nullable=False, default=dict)
+    status = Column(String, nullable=False, default="draft")
+    output_file_path = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+    template = relationship("ReportTemplateModel", back_populates="jobs")
