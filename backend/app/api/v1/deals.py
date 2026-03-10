@@ -29,6 +29,7 @@ async def create_deal(
         latitude=body.latitude,
         longitude=body.longitude,
         square_feet=body.square_feet,
+        tags=body.tags,
     )
     return DealResponse.model_validate(deal)
 

@@ -9,4 +9,5 @@ class ExplorationSession:
     id: UUID = field(default_factory=uuid4)
     deal_id: UUID | None = None
     saved: bool = False
+    tags: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)

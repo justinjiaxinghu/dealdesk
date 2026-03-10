@@ -35,7 +35,7 @@ async def create_deal_exploration(
         Depends(get_exploration_session_repo),
     ],
 ) -> ExplorationSessionResponse:
-    entity = ExplorationSession(name=body.name, deal_id=deal_id)
+    entity = ExplorationSession(name=body.name, deal_id=deal_id, tags=body.tags)
     created = await repo.create(entity)
     return ExplorationSessionResponse.model_validate(created)
 
@@ -52,7 +52,7 @@ async def create_free_exploration(
         Depends(get_exploration_session_repo),
     ],
 ) -> ExplorationSessionResponse:
-    entity = ExplorationSession(name=body.name)
+    entity = ExplorationSession(name=body.name, tags=body.tags)
     created = await repo.create(entity)
     return ExplorationSessionResponse.model_validate(created)
 
@@ -136,6 +136,8 @@ async def update_exploration(
         entity.name = body.name
     if body.saved is not None:
         entity.saved = body.saved
+    if body.tags is not None:
+        entity.tags = body.tags
     updated = await repo.update(entity)
     return ExplorationSessionResponse.model_validate(updated)
 

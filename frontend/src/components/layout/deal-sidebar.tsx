@@ -22,6 +22,8 @@ interface DealSidebarProps {
   historicalFinancials?: HistoricalFinancial[];
   loading?: boolean;
   onExport?: () => void;
+  pipelineStep?: string | null;
+  pipelineDetail?: string | null;
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -143,6 +145,8 @@ export function DealSidebar({
   historicalFinancials = [],
   loading = false,
   onExport,
+  pipelineStep,
+  pipelineDetail,
 }: DealSidebarProps) {
   const [selectedValidation, setSelectedValidation] =
     useState<FieldValidation | null>(null);
@@ -247,6 +251,27 @@ export function DealSidebar({
           )}
         </div>
       </div>
+
+      {/* Pipeline progress banner */}
+      {pipelineStep && (
+        <div className="px-4 py-3 border-b bg-blue-50 dark:bg-blue-950/30">
+          <div className="flex items-center gap-2 text-sm">
+            <Spinner />
+            <div>
+              <div className="font-medium text-blue-700 dark:text-blue-400 capitalize">
+                {pipelineStep === "extract" ? "Extracting" :
+                 pipelineStep === "historical" ? "Historical Financials" :
+                 pipelineStep === "assumptions" ? "Generating Benchmarks" :
+                 pipelineStep === "validate" ? "Validating" :
+                 pipelineStep === "comps" ? "Finding Comps" : pipelineStep}
+              </div>
+              {pipelineDetail && (
+                <div className="text-xs text-muted-foreground">{pipelineDetail}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Extraction */}
       <SidebarSection

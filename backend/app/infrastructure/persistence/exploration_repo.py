@@ -68,6 +68,7 @@ class SqlAlchemyExplorationSessionRepository(ExplorationSessionRepository):
         model = result.scalar_one()
         model.name = entity.name
         model.saved = entity.saved
+        model.tags = entity.tags
         model.deal_id = str(entity.deal_id) if entity.deal_id else None
         await self._session.flush()
         await self._session.refresh(model)

@@ -32,6 +32,19 @@ from app.services.chat_service import ChatService
 router = APIRouter(tags=["chat"])
 
 
+def _parse_connectors(raw: list[str]) -> list[ConnectorType]:
+    """Parse connector strings, skipping unknown providers (e.g. onedrive, box)."""
+    result = []
+    for c in raw:
+        try:
+            result.append(ConnectorType(c))
+        except ValueError:
+            # File connector providers (onedrive, box, etc.) are not ConnectorType members —
+            # they're handled separately by the connector service search.
+            pass
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Chat Sessions
 # ---------------------------------------------------------------------------
@@ -50,7 +63,7 @@ async def create_chat_session(
         Depends(get_chat_session_repo),
     ],
 ) -> ChatSessionResponse:
-    connectors = [ConnectorType(c) for c in body.connectors]
+    connectors = _parse_connectors(body.connectors)
     entity = ChatSession(
         exploration_session_id=exploration_id,
         title=body.title,
@@ -170,12 +183,13 @@ async def send_message(
     body: SendMessageRequest,
     service: Annotated[ChatService, Depends(get_chat_service)],
 ) -> list[ChatMessageResponse]:
-    connectors = [ConnectorType(c) for c in body.connectors]
+    connectors = _parse_connectors(body.connectors)
     try:
         new_messages = await service.send_message(
             session_id=session_id,
             user_content=body.content,
             connectors=connectors,
+            raw_connectors=body.connectors,
         )
     except ValueError as exc:
         raise HTTPException(

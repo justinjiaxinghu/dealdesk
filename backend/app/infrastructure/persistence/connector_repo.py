@@ -1,5 +1,5 @@
 """Connector and ConnectorFile repositories."""
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.connector import Connector, ConnectorFile
@@ -61,7 +61,15 @@ class SqlAlchemyConnectorFileRepository:
         stmt = select(ConnectorFileModel)
         if connector_id:
             stmt = stmt.where(ConnectorFileModel.connector_id == connector_id)
-        stmt = stmt.where(ConnectorFileModel.text_content.ilike(f"%{query}%"))
+        # Match any word in the query (OR logic) so "Arizona properties" matches
+        # files containing "Arizona" or "properties"
+        words = [w for w in query.split() if len(w) >= 2]
+        if words:
+            stmt = stmt.where(
+                or_(*(ConnectorFileModel.text_content.ilike(f"%{w}%") for w in words))
+            )
+        else:
+            stmt = stmt.where(ConnectorFileModel.text_content.ilike(f"%{query}%"))
         result = await self._session.execute(stmt)
         return [connector_file_model_to_entity(m) for m in result.scalars().all()]
 

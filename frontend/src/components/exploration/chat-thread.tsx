@@ -9,9 +9,10 @@ interface ChatThreadProps {
   messages: ChatMessage[];
   loading?: boolean;
   dealId?: string | null;
+  activeConnectors?: string[];
 }
 
-export function ChatThread({ messages, loading = false, dealId }: ChatThreadProps) {
+export function ChatThread({ messages, loading = false, dealId, activeConnectors = [] }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages or loading state change
@@ -42,7 +43,7 @@ export function ChatThread({ messages, loading = false, dealId }: ChatThreadProp
 
       {loading && (
         <div className="flex justify-start">
-          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3">
+          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0ms]" />
@@ -53,6 +54,23 @@ export function ChatThread({ messages, loading = false, dealId }: ChatThreadProp
                 Searching and analyzing...
               </span>
             </div>
+            {activeConnectors.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeConnectors.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    {c.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Web Search
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

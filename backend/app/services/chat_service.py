@@ -151,6 +151,7 @@ class ChatService:
         session_id: UUID,
         user_content: str,
         connectors: list[ConnectorType],
+        raw_connectors: list[str] | None = None,
     ) -> list[ChatMessage]:
         chat_session = await self._chat_session_repo.get_by_id(session_id)
         if chat_session is None:
@@ -180,6 +181,43 @@ class ChatService:
             system_prompt = SYSTEM_PROMPT_DEAL.format(deal_context=deal_context)
         else:
             system_prompt = SYSTEM_PROMPT_FREE
+
+        # Build source instructions and tool list based on user-selected connectors
+        raw = raw_connectors or []
+        has_web = "tavily" in raw
+        file_providers = [
+            c for c in raw
+            if c in ("onedrive", "box", "google_drive", "sharepoint")
+        ]
+        has_files = bool(file_providers) and self._connector_service is not None
+
+        # Build tool list based on selections
+        active_tools = []
+        source_instructions = []
+        if has_web:
+            active_tools.append(TOOL_DEFINITIONS[0])  # web_search
+            source_instructions.append("Use the web_search tool to find market data from the internet. Label these results with 'Source: Web'.")
+        if has_files:
+            active_tools.append(TOOL_DEFINITIONS[1])  # connected_files_search
+            provider_names = ", ".join(p.replace("_", " ").title() for p in file_providers)
+            source_instructions.append(
+                f"Use the connected_files_search tool to search the user's connected files ({provider_names}). "
+                f"Label these results with 'Source: [Provider Name]' (e.g., 'Source: OneDrive')."
+            )
+
+        if source_instructions:
+            system_prompt += "\n\nSOURCE INSTRUCTIONS:\n" + "\n".join(source_instructions)
+            if has_web and has_files:
+                system_prompt += (
+                    "\n\nCRITICAL: You MUST call EVERY available tool for EVERY query. "
+                    "Do NOT skip any tool. Always call both web_search AND connected_files_search "
+                    "before composing your response. Combine and contrast insights from all sources. "
+                    "If a source returns no results, mention that explicitly."
+                )
+
+        # Fall back to all tools if nothing selected
+        if not active_tools:
+            active_tools = TOOL_DEFINITIONS
 
         # Load conversation history
         history = await self._chat_message_repo.get_by_session_id(session_id)
@@ -214,7 +252,7 @@ class ChatService:
             response = await self._openai.chat.completions.create(
                 model=self._model,
                 messages=messages,
-                tools=TOOL_DEFINITIONS,
+                tools=active_tools,
             )
             choice = response.choices[0]
 
@@ -276,6 +314,7 @@ class ChatService:
                                     "path": f.path,
                                     "file_type": f.file_type,
                                     "relevant_content": f.text_content,
+                                    "source_provider": f.path.split("/")[1] if "/" in f.path else (provider or "Connected Files"),
                                     "source": "connected_files",
                                 }
                                 for f in files

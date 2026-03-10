@@ -8,7 +8,7 @@ MOCK_FILES_BY_PROVIDER: dict[str, list[dict]] = {
             "file_type": "xlsx",
             "text_content": (
                 "Sunrise Senior Living — Rent Roll as of December 31, 2025\n"
-                "Property: 450 Oak Park Blvd, Scottsdale, AZ 85251\n"
+                "Property: 450 Oak Park Blvd, Scottsdale, Arizona (AZ) 85251\n"
                 "Total Units: 142 (68 IL, 52 AL, 22 MC)\n"
                 "Average Monthly Rate: IL $4,850, AL $7,200, MC $9,750\n"
                 "Occupancy: 91.5% overall (IL 95%, AL 89%, MC 86%)\n"
@@ -22,7 +22,7 @@ MOCK_FILES_BY_PROVIDER: dict[str, list[dict]] = {
             "file_type": "pdf",
             "text_content": (
                 "Meridian Master-Planned Community — Annual Financial Statement FY2025\n"
-                "Location: 12800 N Meridian Rd, Surprise, AZ 85379 (680 acres)\n"
+                "Location: 12800 N Meridian Rd, Surprise, Arizona (AZ) 85379 (680 acres)\n"
                 "Lots Sold YTD: 312 of 1,450 total planned (21.5% absorption)\n"
                 "Average Lot Price: $185,000 | Revenue YTD: $57.7M\n"
                 "Infrastructure Spend: $22.4M (Phase 2 roads, water, sewer)\n"

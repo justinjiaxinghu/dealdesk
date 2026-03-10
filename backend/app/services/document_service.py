@@ -19,7 +19,7 @@ from app.domain.interfaces.repositories import (
     ExtractedFieldRepository,
     MarketTableRepository,
 )
-from app.domain.value_objects.enums import DocumentType, ProcessingStatus
+from app.domain.value_objects.enums import DocumentType, ProcessingStatus, ProcessingStepStatus
 from app.domain.value_objects.types import ProcessingStep, RawField
 
 logger = logging.getLogger(__name__)
@@ -61,9 +61,9 @@ class DocumentService:
             original_filename=filename,
             processing_status=ProcessingStatus.PENDING,
             processing_steps=[
-                ProcessingStep(name="extract_text", status="pending"),
-                ProcessingStep(name="extract_tables", status="pending"),
-                ProcessingStep(name="normalize_fields", status="pending"),
+                ProcessingStep(name="extract_text", status=ProcessingStepStatus.PENDING),
+                ProcessingStep(name="extract_tables", status=ProcessingStepStatus.PENDING),
+                ProcessingStep(name="normalize_fields", status=ProcessingStepStatus.PENDING),
             ],
         )
         return await self._document_repo.create(doc)
@@ -82,7 +82,7 @@ class DocumentService:
             # Step 1: Extract text
             await self._document_repo.update_processing_step(
                 document_id,
-                ProcessingStep(name="extract_text", status="in_progress"),
+                ProcessingStep(name="extract_text", status=ProcessingStepStatus.IN_PROGRESS),
             )
             file_path = await self._file_storage.retrieve(doc.file_path)
             pages = await self._document_processor.extract_text(file_path)
@@ -91,7 +91,7 @@ class DocumentService:
                 document_id,
                 ProcessingStep(
                     name="extract_text",
-                    status="complete",
+                    status=ProcessingStepStatus.COMPLETE,
                     detail=f"Extracted {len(pages)} pages",
                 ),
             )
@@ -101,7 +101,7 @@ class DocumentService:
             await self._document_repo.update(doc)
             await self._document_repo.update_processing_step(
                 document_id,
-                ProcessingStep(name="extract_tables", status="in_progress"),
+                ProcessingStep(name="extract_tables", status=ProcessingStepStatus.IN_PROGRESS),
             )
             tables = await self._document_processor.extract_tables(file_path)
             # Persist market tables
@@ -122,7 +122,7 @@ class DocumentService:
                 document_id,
                 ProcessingStep(
                     name="extract_tables",
-                    status="complete",
+                    status=ProcessingStepStatus.COMPLETE,
                     detail=f"Extracted {len(tables)} tables",
                 ),
             )
@@ -132,7 +132,7 @@ class DocumentService:
             await self._document_repo.update(doc)
             await self._document_repo.update_processing_step(
                 document_id,
-                ProcessingStep(name="normalize_fields", status="in_progress"),
+                ProcessingStep(name="normalize_fields", status=ProcessingStepStatus.IN_PROGRESS),
             )
             # Build raw fields from extracted text
             raw_fields: list[RawField] = []
@@ -165,7 +165,7 @@ class DocumentService:
 
             await self._document_repo.update_processing_step(
                 document_id,
-                ProcessingStep(name="normalize_fields", status="complete"),
+                ProcessingStep(name="normalize_fields", status=ProcessingStepStatus.COMPLETE),
             )
 
             # Mark complete

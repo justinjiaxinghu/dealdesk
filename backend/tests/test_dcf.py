@@ -5,6 +5,7 @@ from app.domain.services.dcf import (
     compute_projection,
     _bisect_irr,
 )
+from app.domain.value_objects.enums import Cadence, ForecastMethod
 from datetime import date
 
 
@@ -12,7 +13,7 @@ def base_params(**overrides) -> ProjectionParams:
     defaults = dict(
         start_date=date(2026, 1, 1),
         periods=5,
-        cadence="annual",
+        cadence=Cadence.ANNUAL,
         purchase_price=1_000_000.0,
         ltv=0.70,
         closing_costs=0.0,
@@ -21,9 +22,9 @@ def base_params(**overrides) -> ProjectionParams:
         base_occupancy_rate=1.0,
         base_expense_ratio=0.40,
         base_capex_per_unit=0.0,
-        revenue_forecast_method="historical",
+        revenue_forecast_method=ForecastMethod.HISTORICAL,
         revenue_forecast_params={},
-        expense_forecast_method="historical",
+        expense_forecast_method=ForecastMethod.HISTORICAL,
         expense_forecast_params={},
         sofr_rate=0.04,
         spread=0.01,

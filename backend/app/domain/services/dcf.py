@@ -1,19 +1,70 @@
-"""Pure Python DCF engine. Zero external dependencies."""
+"""
+Pure Python DCF (Discounted Cash Flow) engine. Zero external dependencies.
+
+DCF is a financial model that estimates the value of an investment based on
+its expected future cash flows. Money today is worth more than money in the
+future (due to inflation, risk, opportunity cost), so future cash flows are
+"discounted" back to present value.
+
+For real estate, this model projects cash flows over a holding period:
+- Year 0: Initial equity investment (negative cash flow)
+- Years 1-N: Rental income minus expenses minus debt payments
+- Final year: Includes sale proceeds (exit value minus remaining loan balance)
+
+The model calculates key return metrics that investors use to evaluate deals.
+"""
 from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from app.domain.value_objects.enums import Cadence, ForecastMethod
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class ProjectionParams:
+    """
+    All inputs needed to run a DCF projection.
+
+    Model Structure:
+    - start_date: When the investment begins
+    - periods: Number of years (or quarters) to project
+    - cadence: "annual" or "quarterly" projection intervals
+
+    Transaction (how the deal is structured):
+    - purchase_price: Total price paid for the property
+    - ltv: Loan-to-Value ratio (e.g., 0.7 = 70% debt, 30% equity)
+    - closing_costs: Legal fees, title insurance, etc.
+    - acquisition_fee: Fee paid to the deal sponsor/manager
+
+    Operating (property financials):
+    - base_gross_revenue: Starting annual rental income
+    - base_occupancy_rate: % of units rented (e.g., 0.95 = 95% occupied)
+    - base_expense_ratio: Operating expenses as % of income
+    - base_capex_per_unit: Capital expenditures (roof repairs, HVAC, etc.)
+    - revenue/expense_forecast_method: How to project future values
+      ("historical" = flat, "step_change" = fixed annual increase,
+       "gradual_ramp" = linear interpolation to target)
+
+    Financing (loan terms):
+    - sofr_rate: SOFR (Secured Overnight Financing Rate) — the benchmark
+      interest rate that banks use, replaced LIBOR in 2023
+    - spread: Additional interest charged above SOFR (e.g., 0.02 = 2%)
+    - loan_term: Total loan duration in years
+    - interest_only_years: Years before principal payments begin
+
+    Returns:
+    - exit_cap_rate: Cap rate used to estimate sale price at exit
+      (Exit Value = Forward NOI / Exit Cap Rate)
+    """
+
     # Model structure
     start_date: date
     periods: int
-    cadence: str                      # "annual" | "quarterly"
+    cadence: Cadence
     # Transaction
     purchase_price: float
     ltv: float
@@ -24,14 +75,14 @@ class ProjectionParams:
     base_occupancy_rate: float
     base_expense_ratio: float
     base_capex_per_unit: float
-    revenue_forecast_method: str      # "historical" | "step_change" | "gradual_ramp"
+    revenue_forecast_method: ForecastMethod
     revenue_forecast_params: dict[str, Any]
-    expense_forecast_method: str
+    expense_forecast_method: ForecastMethod
     expense_forecast_params: dict[str, Any]
     # Financing
     sofr_rate: float
     spread: float
-    loan_term: int                    # years
+    loan_term: int
     interest_only_years: int
     # Returns
     exit_cap_rate: float
@@ -39,6 +90,30 @@ class ProjectionParams:
 
 @dataclass(frozen=True)
 class ProjectionResult:
+    """
+    Output metrics from a DCF projection — the key numbers investors care about.
+
+    - irr: IRR (Internal Rate of Return) — the annualized return rate that makes
+      NPV (Net Present Value) equal zero. Answers: "What's my effective annual
+      return?" A 15% IRR means your money grows ~15% per year. Returns None if
+      no valid IRR exists (e.g., all positive or all negative cash flows).
+
+    - equity_multiple: Total distributions / initial equity. Answers: "How many
+      times did I get my money back?" A 2.0x multiple means you doubled your
+      investment (put in $100K, got back $200K total).
+
+    - cash_on_cash_yr1: Year 1 cash flow / equity invested. Answers: "What's my
+      first-year cash yield?" An 8% CoC means $8K cash return on $100K invested.
+
+    - cap_rate_on_cost: Year 1 NOI / total acquisition cost. Answers: "What's my
+      yield on total investment?" Similar to cap rate but includes closing costs
+      and fees, not just purchase price.
+
+    - cash_flows: The full series of projected cash flows, starting with the
+      initial equity investment (negative) followed by each period's net cash
+      flow. The final period includes sale proceeds.
+    """
+
     irr: float | None
     equity_multiple: float
     cash_on_cash_yr1: float
@@ -46,16 +121,16 @@ class ProjectionResult:
     cash_flows: list[float]
 
 
-def _apply_forecast(base: float, period: int, method: str, params: dict[str, Any], total_periods: int = 5) -> float:
+def _apply_forecast(base: float, period: int, method: ForecastMethod, params: dict[str, Any], total_periods: int = 5) -> float:
     """Return the value at period t (1-indexed) using the specified forecast method."""
-    if method == "step_change":
+    if method == ForecastMethod.STEP_CHANGE:
         return base + params.get("step_value", 0.0) * period
-    if method == "gradual_ramp":
+    if method == ForecastMethod.GRADUAL_RAMP:
         target = params.get("target_value", base)
         if total_periods <= 0:
             return base
         return base + (target - base) * (period / total_periods)
-    # "historical" or unknown: flat
+    # historical or unknown: flat
     return base
 
 

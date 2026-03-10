@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 from app.domain.entities.historical_financial import HistoricalFinancial
+from app.domain.value_objects.enums import HistoricalFinancialSource
 
 
 def test_historical_financial_entity():
@@ -10,7 +11,7 @@ def test_historical_financial_entity():
         metric_key="noi",
         value=1_400_000.0,
         unit="$",
-        source="extracted",
+        source=HistoricalFinancialSource.EXTRACTED,
     )
     assert hf.period_label == "T12"
     assert hf.metric_key == "noi"
