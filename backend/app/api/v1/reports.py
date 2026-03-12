@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from app.api.schemas import (
+    AiFillRequest,
     CreateReportJobRequest,
     ReportJobResponse,
     ReportTemplateResponse,
@@ -123,6 +124,19 @@ async def generate_report(
 ):
     try:
         job = await service.generate(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return ReportJobResponse.model_validate(job)
+
+
+@router.post("/report-jobs/{job_id}/ai-fill", response_model=ReportJobResponse)
+async def ai_fill(
+    job_id: str,
+    body: AiFillRequest,
+    service: Annotated[ReportService, Depends(get_report_service)],
+):
+    try:
+        job = await service.ai_fill(job_id, body.connectors, body.prompt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return ReportJobResponse.model_validate(job)

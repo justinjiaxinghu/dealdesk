@@ -341,9 +341,15 @@ def get_chat_service(
     )
 
 
-def get_report_service(session: DbSession) -> ReportService:
+def get_report_service(
+    session: DbSession,
+    connector_service: Annotated[ConnectorService, Depends(get_connector_service)],
+) -> ReportService:
     return ReportService(
         template_repo=SqlAlchemyReportTemplateRepository(session),
         job_repo=SqlAlchemyReportJobRepository(session),
         file_storage=_file_storage,
+        connector_service=connector_service,
+        openai_api_key=settings.openai_api_key,
+        openai_model=settings.openai_model,
     )

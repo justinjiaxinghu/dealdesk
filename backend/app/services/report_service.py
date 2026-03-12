@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import json
+import logging
 import re
 from dataclasses import asdict
 from pathlib import Path
@@ -14,14 +16,33 @@ from app.domain.entities.report import FillableRegion, ReportJob, ReportTemplate
 
 MARKER_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
+logger = logging.getLogger(__name__)
+
 
 class ReportService:
     """Manages report templates and fill jobs."""
 
-    def __init__(self, template_repo, job_repo, file_storage) -> None:
+    def __init__(
+        self,
+        template_repo,
+        job_repo,
+        file_storage,
+        connector_service=None,
+        openai_api_key: str = "",
+        openai_model: str = "gpt-4o",
+    ) -> None:
         self._template_repo = template_repo
         self._job_repo = job_repo
         self._file_storage = file_storage
+        self._connector_service = connector_service
+        self._openai_api_key = openai_api_key
+        self._openai_model = openai_model
+
+        # Lazily create OpenAI client only when needed
+        self._openai_client = None
+        if openai_api_key:
+            from openai import AsyncOpenAI
+            self._openai_client = AsyncOpenAI(api_key=openai_api_key)
 
     # ------------------------------------------------------------------
     # Templates
@@ -116,6 +137,125 @@ class ReportService:
         file_bytes = Path(file_path).read_bytes()
         filename = f"{job.name}.{template.file_format}" if template else Path(job.output_file_path).name
         return file_bytes, filename
+
+    # ------------------------------------------------------------------
+    # AI Fill
+    # ------------------------------------------------------------------
+
+    async def ai_fill(
+        self,
+        job_id: str,
+        connectors: list[str],
+        prompt: str | None = None,
+    ) -> ReportJob:
+        """Use AI to auto-fill template regions from connected file context."""
+        job = await self._job_repo.get_by_id(job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        template = await self._template_repo.get_by_id(job.template_id)
+        if template is None:
+            raise ValueError(f"Template {job.template_id} not found")
+
+        if not self._openai_client:
+            raise ValueError("OpenAI API key is not configured")
+
+        regions = template.regions
+        if not regions:
+            return job
+
+        # Gather file context from connected sources for each region
+        file_context_parts: list[str] = []
+        if self._connector_service and connectors:
+            for region in regions:
+                label = region.get("label", "")
+                headers = region.get("headers", [])
+                query = f"{label} {' '.join(headers)}".strip()
+                if not query:
+                    continue
+                try:
+                    results = await self._connector_service.search_files(query)
+                    for f in results:
+                        text = f.text_content or ""
+                        if text:
+                            file_context_parts.append(
+                                f"--- File: {f.name} ---\n{text}"
+                            )
+                except Exception:
+                    logger.warning(
+                        "Failed to search files for region %s", label, exc_info=True
+                    )
+
+        # Build the region structure description
+        region_descriptions: list[str] = []
+        for region in regions:
+            rid = region.get("region_id", "")
+            label = region.get("label", "")
+            headers = region.get("headers", [])
+            row_count = region.get("row_count", 0)
+            region_descriptions.append(
+                f'- region_id: "{rid}", label: "{label}", '
+                f'headers: {json.dumps(headers)}, row_count: {row_count}'
+            )
+
+        system_message = (
+            "You are a report-filling assistant. Given a template structure and "
+            "optional file context, generate data to fill the template regions.\n\n"
+            "Return a JSON object where each key is a region_id and each value has "
+            'a "rows" array. Each row is an array of string values matching the '
+            "headers in order. Generate the number of rows indicated by row_count "
+            "(or fewer if data is insufficient).\n\n"
+            "Example output:\n"
+            '{\n  "region-abc": {\n    "rows": [["val1", "val2"], ["val3", "val4"]]\n  }\n}'
+        )
+
+        user_parts: list[str] = []
+        user_parts.append("## Template Regions\n" + "\n".join(region_descriptions))
+
+        if file_context_parts:
+            # Deduplicate and limit context size
+            seen: set[str] = set()
+            unique_parts: list[str] = []
+            for part in file_context_parts:
+                if part not in seen:
+                    seen.add(part)
+                    unique_parts.append(part)
+            file_context = "\n\n".join(unique_parts)
+            # Truncate to ~30k chars to stay within context limits
+            if len(file_context) > 30000:
+                file_context = file_context[:30000] + "\n... (truncated)"
+            user_parts.append("## File Context\n" + file_context)
+
+        if prompt:
+            user_parts.append("## User Instructions\n" + prompt)
+
+        user_message = "\n\n".join(user_parts)
+
+        response = await self._openai_client.chat.completions.create(
+            model=self._openai_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+        )
+
+        raw = response.choices[0].message.content or "{}"
+        try:
+            ai_fills = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.error("Failed to parse AI fill response: %s", raw)
+            ai_fills = {}
+
+        # Convert AI fills into the job fills format (keyed by sheet/region label)
+        for region in regions:
+            rid = region.get("region_id", "")
+            label = region.get("label", "")
+            if rid in ai_fills and "rows" in ai_fills[rid]:
+                job.fills[label] = ai_fills[rid]["rows"]
+
+        return await self._job_repo.update(job)
 
 
 # ======================================================================

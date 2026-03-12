@@ -28,6 +28,16 @@ export const reportService = {
       body: JSON.stringify({ fills }),
     });
   },
+  async aiFill(
+    jobId: string,
+    connectors: string[],
+    prompt?: string,
+  ): Promise<ReportJob> {
+    return apiFetch<ReportJob>(`/report-jobs/${jobId}/ai-fill`, {
+      method: "POST",
+      body: JSON.stringify({ connectors, prompt }),
+    });
+  },
   async generate(jobId: string): Promise<ReportJob> {
     return apiFetch<ReportJob>(`/report-jobs/${jobId}/generate`, {
       method: "POST",

@@ -490,6 +490,11 @@ class UpdateReportJobRequest(BaseModel):
     fills: dict
 
 
+class AiFillRequest(BaseModel):
+    connectors: list[str] = []
+    prompt: str | None = None
+
+
 class ReportJobResponse(BaseModel):
     model_config = {"from_attributes": True}
     id: str
