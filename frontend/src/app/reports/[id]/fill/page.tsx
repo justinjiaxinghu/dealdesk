@@ -1,14 +1,15 @@
 "use client";
 
+// Requires: npm install xlsx
+import * as XLSX from "xlsx";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { reportService } from "@/services/report.service";
 import { connectorService } from "@/services/connector.service";
 import type { ReportTemplate, ReportJob, Connector } from "@/interfaces/api";
 
-type Phase = "select" | "review";
+type Phase = "select" | "preview";
 
 export default function FillReportPage() {
   const params = useParams();
@@ -18,8 +19,6 @@ export default function FillReportPage() {
   const [template, setTemplate] = useState<ReportTemplate | null>(null);
   const [job, setJob] = useState<ReportJob | null>(null);
   const [fills, setFills] = useState<Record<string, { rows: string[][] }>>({});
-  const [generating, setGenerating] = useState(false);
-  const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Phase 1 state
@@ -30,6 +29,10 @@ export default function FillReportPage() {
   );
   const [prompt, setPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Phase 2 (preview) state
+  const [sheetData, setSheetData] = useState<Record<string, string[][]>>({});
+  const [activeSheet, setActiveSheet] = useState<string>("");
 
   // Fetch template, create job, and load connectors on mount
   useEffect(() => {
@@ -90,6 +93,7 @@ export default function FillReportPage() {
     setAiLoading(true);
     setError(null);
     try {
+      // 1. Run AI fill
       const updated = await reportService.aiFill(
         job.id,
         Array.from(selectedConnectors),
@@ -97,94 +101,35 @@ export default function FillReportPage() {
       );
       setJob(updated);
 
-      // Parse returned fills into local state
-      if (updated.fills && template) {
-        const parsedFills: Record<string, { rows: string[][] }> = {};
-        for (const region of template.regions) {
-          const regionFill = updated.fills[region.region_id] as
-            | { rows: string[][] }
-            | undefined;
-          if (regionFill?.rows) {
-            parsedFills[region.region_id] = { rows: regionFill.rows };
-          } else {
-            // Keep existing empty fills if AI didn't return data for this region
-            parsedFills[region.region_id] = fills[region.region_id] || {
-              rows: Array.from({ length: Math.max(region.row_count, 1) }, () =>
-                Array.from({ length: region.headers.length || 1 }, () => ""),
-              ),
-            };
-          }
-        }
-        setFills(parsedFills);
+      // 2. Save fills to the job
+      if (updated.fills) {
+        await reportService.updateFills(job.id, updated.fills);
       }
 
-      setPhase("review");
+      // 3. Generate the filled XLSX
+      const generated = await reportService.generate(updated.id);
+      setJob(generated);
+
+      // 4. Fetch and parse the generated XLSX
+      const resp = await fetch(reportService.downloadUrl(generated.id));
+      const buffer = await resp.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const data: Record<string, string[][]> = {};
+      for (const name of wb.SheetNames) {
+        data[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+          header: 1,
+        }) as string[][];
+      }
+      setSheetData(data);
+      setActiveSheet(wb.SheetNames[0] ?? "");
+      setPhase("preview");
     } catch (err) {
       console.error("AI fill failed", err);
       setError("AI fill failed. Please try again.");
     } finally {
       setAiLoading(false);
     }
-  }, [job, selectedConnectors, prompt, template, fills]);
-
-  const updateCell = useCallback(
-    (regionId: string, rowIdx: number, colIdx: number, value: string) => {
-      setFills((prev) => {
-        const regionFills = prev[regionId];
-        if (!regionFills) return prev;
-        const newRows = regionFills.rows.map((row) => [...row]);
-        newRows[rowIdx][colIdx] = value;
-        return { ...prev, [regionId]: { rows: newRows } };
-      });
-    },
-    [],
-  );
-
-  const addRow = useCallback(
-    (regionId: string) => {
-      setFills((prev) => {
-        const regionFills = prev[regionId];
-        if (!regionFills) return prev;
-        const colCount =
-          regionFills.rows[0]?.length ||
-          template?.regions.find((r) => r.region_id === regionId)?.headers
-            .length ||
-          1;
-        const newRow = Array.from({ length: colCount }, () => "");
-        return {
-          ...prev,
-          [regionId]: { rows: [...regionFills.rows, newRow] },
-        };
-      });
-    },
-    [template],
-  );
-
-  const saveFills = useCallback(async () => {
-    if (!job) return;
-    try {
-      await reportService.updateFills(job.id, fills);
-    } catch (err) {
-      console.error("Failed to save fills", err);
-    }
-  }, [job, fills]);
-
-  const handleGenerate = useCallback(async () => {
-    if (!job) return;
-    setGenerating(true);
-    setError(null);
-    try {
-      await saveFills();
-      const updated = await reportService.generate(job.id);
-      setJob(updated);
-      setCompleted(true);
-    } catch (err) {
-      console.error("Report generation failed", err);
-      setError("Report generation failed. Please try again.");
-    } finally {
-      setGenerating(false);
-    }
-  }, [job, saveFills]);
+  }, [job, selectedConnectors, prompt]);
 
   // --- Error state (no template loaded) ---
   if (error && !template) {
@@ -208,29 +153,6 @@ export default function FillReportPage() {
   }
 
   const regions = template.regions;
-
-  // --- Completed state ---
-  if (completed) {
-    return (
-      <div className="max-w-lg mx-auto py-16 text-center space-y-6">
-        <h1 className="text-2xl font-bold">Report Generated</h1>
-        <p className="text-muted-foreground">
-          Your report has been generated and is ready for download.
-        </p>
-        <div className="flex items-center justify-center gap-4">
-          <a
-            href={reportService.downloadUrl(job.id)}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
-          >
-            Download Report
-          </a>
-          <Button variant="outline" onClick={() => router.push("/reports")}>
-            Back to Reports
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // --- No regions edge case ---
   if (regions.length === 0) {
@@ -350,101 +272,127 @@ export default function FillReportPage() {
     );
   }
 
-  // --- Phase 2: Review & Export ---
+  // --- Phase 2: Excel Preview ---
+  const sheetNames = Object.keys(sheetData);
+  const activeRows = sheetData[activeSheet] ?? [];
+
+  // Determine the max number of columns across all rows in the active sheet
+  const maxCols = activeRows.reduce(
+    (max, row) => Math.max(max, row.length),
+    0,
+  );
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-24">
+    <div className="max-w-6xl mx-auto space-y-4 pb-24">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">{template.name}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Review and edit the AI-generated fills, then export.
+          Preview of the generated report.
         </p>
       </div>
 
-      {/* All regions */}
-      {regions.map((region) => {
-        const regionFills = fills[region.region_id];
-        return (
-          <div key={region.region_id} className="space-y-3">
-            {/* Region header */}
-            <div>
-              <h2 className="text-lg font-semibold">{region.label}</h2>
-              <p className="text-sm text-muted-foreground">
-                {region.sheet_or_slide}
-              </p>
-            </div>
+      {/* Sheet tabs */}
+      {sheetNames.length > 1 && (
+        <div className="flex items-center gap-0 border-b">
+          {sheetNames.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setActiveSheet(name)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                name === activeSheet
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
 
-            {/* Editable table */}
-            <div className="border rounded-md overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    {region.headers.map((header, colIdx) => (
+      {/* Excel-like table */}
+      <div className="border rounded-md overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          {activeRows.length > 0 && (
+            <>
+              {/* Header row */}
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-800">
+                  {Array.from({ length: maxCols }, (_, colIdx) => {
+                    const cellValue = activeRows[0]?.[colIdx];
+                    return (
                       <th
                         key={colIdx}
-                        className="px-3 py-2 text-left font-medium text-muted-foreground"
+                        className="px-3 py-2 text-left font-bold text-sm text-foreground border border-gray-200 dark:border-gray-700 whitespace-nowrap"
                       >
-                        {header}
+                        {cellValue != null && cellValue !== ""
+                          ? String(cellValue)
+                          : ""}
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {regionFills?.rows.map((row, rowIdx) => (
-                    <tr key={rowIdx} className="border-b last:border-b-0">
-                      {row.map((cellValue, colIdx) => (
-                        <td key={colIdx} className="px-2 py-1">
-                          <Input
-                            value={cellValue}
-                            onChange={(e) =>
-                              updateCell(
-                                region.region_id,
-                                rowIdx,
-                                colIdx,
-                                e.target.value,
-                              )
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    );
+                  })}
+                </tr>
+              </thead>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => addRow(region.region_id)}
-            >
-              + Add Row
-            </Button>
-          </div>
-        );
-      })}
+              {/* Data rows */}
+              <tbody>
+                {activeRows.slice(1).map((row, rowIdx) => (
+                  <tr
+                    key={rowIdx}
+                    className={
+                      rowIdx % 2 === 0
+                        ? "bg-white dark:bg-gray-900"
+                        : "bg-gray-50 dark:bg-gray-850"
+                    }
+                  >
+                    {Array.from({ length: maxCols }, (_, colIdx) => {
+                      const cellValue = row[colIdx];
+                      return (
+                        <td
+                          key={colIdx}
+                          className="px-3 py-1.5 text-sm text-foreground border border-gray-200 dark:border-gray-700 whitespace-nowrap"
+                        >
+                          {cellValue != null && cellValue !== ""
+                            ? String(cellValue)
+                            : ""}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </>
+          )}
+
+          {activeRows.length === 0 && (
+            <tbody>
+              <tr>
+                <td className="px-3 py-8 text-center text-muted-foreground">
+                  This sheet is empty.
+                </td>
+              </tr>
+            </tbody>
+          )}
+        </table>
+      </div>
 
       {/* Error message */}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {/* Bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-background px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={() => setPhase("select")}
-          >
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Button variant="outline" onClick={() => setPhase("select")}>
             Back to Sources
           </Button>
-          <Button
-            onClick={async () => {
-              await saveFills();
-              await handleGenerate();
-            }}
-            disabled={generating}
+          <a
+            href={reportService.downloadUrl(job.id)}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
           >
-            {generating ? "Exporting..." : "Export to Excel"}
-          </Button>
+            Download Excel
+          </a>
         </div>
       </div>
     </div>

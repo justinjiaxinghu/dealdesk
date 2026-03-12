@@ -248,12 +248,15 @@ class ReportService:
             logger.error("Failed to parse AI fill response: %s", raw)
             ai_fills = {}
 
-        # Convert AI fills into the job fills format (keyed by sheet/region label)
+        # Convert AI fills into the job fills format
+        # Store by both region_id (for frontend lookup) and label (for _fill_xlsx)
         for region in regions:
             rid = region.get("region_id", "")
             label = region.get("label", "")
             if rid in ai_fills and "rows" in ai_fills[rid]:
-                job.fills[label] = ai_fills[rid]["rows"]
+                rows = ai_fills[rid]["rows"]
+                job.fills[rid] = {"rows": rows}  # for frontend to read by region_id
+                job.fills[label] = rows  # for _fill_xlsx to read by sheet name
 
         return await self._job_repo.update(job)
 
@@ -368,7 +371,9 @@ def _fill_xlsx(template_bytes: bytes, fills: dict, regions: list[dict]) -> bytes
             region_data[sheet_name] = fills[sheet_name]
 
     for ws in wb.worksheets:
-        # If fills contain row data for this sheet, write them
+        # If fills contain row data for this sheet, write them.
+        # Only process list values (keyed by sheet title); skip dict values
+        # (keyed by region_id for frontend consumption).
         sheet_fills = fills.get(ws.title)
         if isinstance(sheet_fills, list):
             # Write rows starting at row 2
